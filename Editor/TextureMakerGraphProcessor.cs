@@ -1,4 +1,5 @@
 ﻿using Misaki.GraphProcessor.Editor;
+using Misaki.TextureMaker.CodeGen;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -125,103 +126,40 @@ namespace Misaki.TextureMaker
             }
         }
 
-        private void PushPortData(INode sourceNode)
-        {
-            object value = null;
-
-            switch (sourceNode)
-            {
-                case IConstantNode constantNode:
-                    constantNode.TryGetValue<object>(out value);
-                    break;
-                case IVariableNode variableNode:
-                    variableNode.variable.TryGetDefaultValue<object>(out value);
-                    break;
-                default:
-                    // value will be set per port below
-                    break;
-            }
-
-            foreach (var outputPort in sourceNode.GetOutputPorts())
-            {
-                if (!outputPort.isConnected)
-                    continue;
-
-                // For IPortContainer, get value per port
-                var portValue = (sourceNode is IPortValueContainer container)
-                    ? container.GetPortValue(outputPort.name)
-                    : value;
-
-                var shouldDispose = false;
-                outputPort.GetConnectedPorts(_portsPool);
-                if (portValue is IBranchUniqueData immutableData)
-                {
-                    foreach (var connectedPort in _portsPool)
-                    {
-                        if (connectedPort.GetNode() is IPortValueContainer connectedContainer)
-                        {
-                            var toSend = _portsPool.Count == 1 ? immutableData : immutableData.MakeUniqueForWrite();
-                            connectedContainer.SetPortValue(connectedPort.name, toSend);
-                        }
-                    }
-
-                    if (_portsPool.Count > 1)
-                    {
-                        shouldDispose = true;
-                    }
-                }
-                else
-                {
-                    foreach (var connectedPort in _portsPool)
-                    {
-                        if (connectedPort.GetNode() is IPortValueContainer connectedContainer)
-                        {
-                            connectedContainer.SetPortValue(connectedPort.name, portValue);
-                        }
-                    }
-                }
-
-                if ((_portsPool.Count == 0 || shouldDispose) && portValue is IDisposable disposable)
-                {
-                    disposable.Dispose();
-                }
-            }
-        }
-
         public void ExecuteGraph()
         {
             foreach (var kvp in _processed)
             {
                 var outputNode = kvp.Key;
-                var width = outputNode.GetInputPortValue<int>(OutputNode.WIDTH_PORT_NAME);
-                var height = outputNode.GetInputPortValue<int>(OutputNode.HEIGHT_PORT_NAME);
 
                 try
                 {
-                    outputNode.Initialize();
+                    // Generate optimized execution code
+                    var codeGenerator = new TextureCodeGenerator();
+                    var generatedCode = codeGenerator.GenerateExecutionCode(kvp.Value);
 
-                    for (var y = 0; y < height; y++)
-                    {
-                        for (var x = 0; x < width; x++)
-                        {
-                            var uv = new Vector2((float)x / (width - 1), (float)y / (height - 1));
-
-                            foreach (var node in kvp.Value)
-                            {
-                                node.Execute(uv);
-                                PushPortData(node);
-                            }
-                        }
-                    }
+                    // TODO: Implement runtime compilation and execution
+                    // For now, we just generate the code for inspection
                 }
                 catch (Exception ex)
                 {
                     Debug.LogException(ex);
                 }
-                finally
-                {
-                    outputNode.Complete();
-                }
+            }
+        }
+
+        /// <summary>
+        /// Generate code for debugging without executing the graph
+        /// </summary>
+        public void GenerateCodeOnly()
+        {
+            foreach (var kvp in _processed)
+            {
+                var codeGenerator = new TextureCodeGenerator();
+                var generatedCode = codeGenerator.GenerateExecutionCode(kvp.Value);
+
+                Debug.Log($"Generated code for output node {kvp.Key}:");
+                Debug.Log(generatedCode);
             }
         }
     }

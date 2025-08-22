@@ -1,6 +1,6 @@
-using Unity.Burst.Intrinsics;
+using Misaki.TextureMaker.CodeGen;
+using Unity.GraphToolkit.Editor;
 using UnityEngine;
-using static Unity.Burst.Intrinsics.X86;
 
 namespace Misaki.TextureMaker
 {
@@ -24,14 +24,18 @@ namespace Misaki.TextureMaker
         Clamp01
     }
 
-    internal unsafe class MathOperation : TextureExecutableNode
+    internal class MathOperation : TextureExecutableNode
     {
+        private IPort _aPort;
+        private IPort _bPort;
+        private IPort _outputPort;
+
         protected override void OnDefinePorts(IPortDefinitionContext context)
         {
-            context.AddInputPort<Color>("A").Build();
-            context.AddInputPort<Color>("B").Build();
+            _aPort = context.AddInputPort<Color>("A").Build();
+            _bPort = context.AddInputPort<Color>("B").Build();
 
-            context.AddOutputPort<Color>("Output").Build();
+            _outputPort = context.AddOutputPort<Color>("Output").Build();
         }
 
         protected override void OnDefineOptions(IOptionDefinitionContext context)
@@ -39,87 +43,83 @@ namespace Misaki.TextureMaker
             context.AddOption<MathOperationType>("Operation").WithDefaultValue(MathOperationType.Add).Build();
         }
 
-        public override void Execute(Vector2 uv)
+        public override void GenerateCode(ICodeGenContext context, string nodeId)
         {
-            var a = GetInputPortValue<Color>("A");
-            var b = GetInputPortValue<Color>("B");
+            context.AddUsing("Unity.Mathematics");
+            context.AddUsing("UnityEngine");
 
+            var aVar = context.GetInputVariable(_aPort);
+            var bVar = context.GetInputVariable(_bPort);
+            var outputVar = context.GetOutputVariable(_outputPort);
+            var operationField = context.GetDataFieldName(nodeId, "operation");
+
+            context.AddLine($"// MathOperation Node {nodeId}");
+            
+            // Declare input variables if not connected
+            if (!_aPort.isConnected)
+                context.DeclareVariable("Color", aVar, "Color.black");
+            if (!_bPort.isConnected)
+                context.DeclareVariable("Color", bVar, "Color.black");
+
+            context.AddLine($"var vA_{nodeId} = new Unity.Mathematics.float4({aVar}.r, {aVar}.g, {aVar}.b, {aVar}.a);");
+            context.AddLine($"var vB_{nodeId} = new Unity.Mathematics.float4({bVar}.r, {bVar}.g, {bVar}.b, {bVar}.a);");
+            context.AddLine($"Unity.Mathematics.float4 result_{nodeId};");
+
+            context.AddLine($"switch (data.{operationField})");
+            context.AddLine("{");
+            context.AddLine("    case MathOperationType.Add:");
+            context.AddLine($"        result_{nodeId} = vA_{nodeId} + vB_{nodeId}; break;");
+            context.AddLine("    case MathOperationType.Subtract:");
+            context.AddLine($"        result_{nodeId} = vA_{nodeId} - vB_{nodeId}; break;");
+            context.AddLine("    case MathOperationType.Multiply:");
+            context.AddLine($"        result_{nodeId} = vA_{nodeId} * vB_{nodeId}; break;");
+            context.AddLine("    case MathOperationType.Divide:");
+            context.AddLine($"        result_{nodeId} = vA_{nodeId} / vB_{nodeId}; break;");
+            context.AddLine("    case MathOperationType.Power:");
+            context.AddLine($"        result_{nodeId} = GeneratedCodeHelpers.Power(vA_{nodeId}, vB_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Min:");
+            context.AddLine($"        result_{nodeId} = Unity.Mathematics.math.min(vA_{nodeId}, vB_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Max:");
+            context.AddLine($"        result_{nodeId} = Unity.Mathematics.math.max(vA_{nodeId}, vB_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Abs:");
+            context.AddLine($"        result_{nodeId} = GeneratedCodeHelpers.Abs(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Floor:");
+            context.AddLine($"        result_{nodeId} = Unity.Mathematics.math.floor(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Ceil:");
+            context.AddLine($"        result_{nodeId} = Unity.Mathematics.math.ceil(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Round:");
+            context.AddLine($"        result_{nodeId} = Unity.Mathematics.math.round(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Fract:");
+            context.AddLine($"        result_{nodeId} = GeneratedCodeHelpers.Fract(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Sin:");
+            context.AddLine($"        result_{nodeId} = GeneratedCodeHelpers.Sin(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Cos:");
+            context.AddLine($"        result_{nodeId} = GeneratedCodeHelpers.Cos(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Sqrt:");
+            context.AddLine($"        result_{nodeId} = Unity.Mathematics.math.sqrt(vA_{nodeId}); break;");
+            context.AddLine("    case MathOperationType.Clamp01:");
+            context.AddLine($"        result_{nodeId} = GeneratedCodeHelpers.Clamp01(vA_{nodeId}); break;");
+            context.AddLine("    default:");
+            context.AddLine($"        result_{nodeId} = vA_{nodeId}; break;");
+            context.AddLine("}");
+
+            context.AddLine($"var {outputVar} = new UnityEngine.Color(result_{nodeId}.x, result_{nodeId}.y, result_{nodeId}.z, result_{nodeId}.w);");
+
+            // Register output variable
+            context.RegisterOutputVariable(_outputPort, outputVar);
+        }
+
+        public override void GenerateDataFields(ICodeGenContext context, string nodeId)
+        {
+            var operationField = context.GetDataFieldName(nodeId, "operation");
+            context.AddDataField("MathOperationType", operationField, $"Math operation type for {nodeId}");
+        }
+
+        public override void GenerateDataInitialization(ICodeGenContext context, string nodeId)
+        {
             var operation = GetOptionValue<MathOperationType>("Operation");
-
-            var vA = a.ToV128();
-            var vB = b.ToV128();
-
-            var result = operation switch
-            {
-                MathOperationType.Add => Sse.add_ps(vA, vB),
-                MathOperationType.Subtract => Sse.sub_ps(vA, vB),
-                MathOperationType.Multiply => Sse.mul_ps(vA, vB),
-                MathOperationType.Divide => Sse.div_ps(vA, vB),
-                MathOperationType.Min => Sse.min_ps(vA, vB),
-                MathOperationType.Max => Sse.max_ps(vA, vB),
-                MathOperationType.Power => PowerSIMD(vA, vB),
-                MathOperationType.Abs => AbsSIMD(vA),
-                MathOperationType.Floor => Sse4_1.floor_ps(vA),
-                MathOperationType.Ceil => Sse4_1.ceil_ps(vA),
-                MathOperationType.Round => Sse4_1.round_ps(vA, 0x00 | 0x08),
-                MathOperationType.Fract => FractSIMD(vA),
-                MathOperationType.Sin => SinSIMD(vA),
-                MathOperationType.Cos => CosSIMD(vA),
-                MathOperationType.Sqrt => Sse.sqrt_ps(vA),
-                MathOperationType.Clamp01 => Clamp01SIMD(vA),
-                _ => vA
-            };
-
-            SetPortValue("Output", result.ToColor());
-        }
-
-        // SIMD math functions
-        private static v128 PowerSIMD(v128 a, v128 b)
-        {
-            return new v128(
-                Mathf.Pow(a.Float0, b.Float0),
-                Mathf.Pow(a.Float1, b.Float1),
-                Mathf.Pow(a.Float2, b.Float2),
-                a.Float3 // Preserve alpha
-            );
-        }
-
-        private static v128 AbsSIMD(v128 a)
-        {
-            var signMask = Sse.set1_ps(-0.0f);
-            return Sse.andnot_ps(signMask, a);
-        }
-
-        private static v128 FractSIMD(v128 a)
-        {
-            return Sse.sub_ps(a, Sse4_1.floor_ps(a));
-        }
-
-        private static v128 SinSIMD(v128 a)
-        {
-            return new v128(
-                Mathf.Sin(a.Float0),
-                Mathf.Sin(a.Float1),
-                Mathf.Sin(a.Float2),
-                a.Float3
-            );
-        }
-
-        private static v128 CosSIMD(v128 a)
-        {
-            return new v128(
-                Mathf.Cos(a.Float0),
-                Mathf.Cos(a.Float1),
-                Mathf.Cos(a.Float2),
-                a.Float3
-            );
-        }
-
-        private static v128 Clamp01SIMD(v128 a)
-        {
-            var zero = Sse.setzero_ps();
-            var one = Sse.set1_ps(1.0f);
-            return Sse.min_ps(Sse.max_ps(a, zero), one);
+            var operationField = context.GetDataFieldName(nodeId, "operation");
+            context.AddInitializationLine($"data.{operationField} = MathOperationType.{operation};");
         }
     }
 }

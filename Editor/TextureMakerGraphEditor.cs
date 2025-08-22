@@ -6,7 +6,7 @@ using UnityEngine.UIElements;
 namespace Misaki.TextureMaker
 {
     [CustomEditor(typeof(DefaultAsset))]
-    public class TextureMakerGraphEditor : Editor
+    public class TextureMakerGraphEditor : UnityEditor.Editor
     {
         private TextureMakerGraph _graphAsset;
         private AssetImporter _importer;

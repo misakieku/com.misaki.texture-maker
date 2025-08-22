@@ -38,29 +38,6 @@ namespace Misaki.TextureMaker
             context.AddOption<BlendMode>("Blend Mode").WithDefaultValue(BlendMode.Normal).Build();
         }
 
-        public override void Execute(Vector2 uv)
-        {
-            var baseColor = GetInputPortValue<Color>("Base");
-            var overlayColor = GetInputPortValue<Color>("Overlay");
-            var maskColor = GetInputPortValue<Color>("Mask");
-
-            var blendMode = GetOptionValue<BlendMode>("Blend Mode");
-
-            var vBase = baseColor.ToV128();
-            var vOverlay = overlayColor.ToV128();
-            var vMask = maskColor.ToV128();
-
-            var blended = BlendColor(vBase, vOverlay, blendMode);
-            var output = new v128(
-                blended.Float0 * vMask.Float0,
-                blended.Float1 * vMask.Float1,
-                blended.Float2 * vMask.Float2,
-                blended.Float3 * vMask.Float3
-            );
-
-            SetPortValue("Output", *(Color*)&output);
-        }
-
         private static v128 BlendColor(v128 baseColor, v128 overlayColor, BlendMode mode)
         {
             return mode switch

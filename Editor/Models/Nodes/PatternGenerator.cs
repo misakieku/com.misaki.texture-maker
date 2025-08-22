@@ -1,6 +1,4 @@
-using Unity.Burst.Intrinsics;
 using UnityEngine;
-using static Unity.Burst.Intrinsics.X86;
 
 namespace Misaki.TextureMaker
 {
@@ -34,54 +32,6 @@ namespace Misaki.TextureMaker
             context.AddOption<float>("Offset X").Build();
             context.AddOption<float>("Offset Y").Build();
             context.AddOption<float>("Rotation").Build();
-        }
-
-        public override void Execute(Vector2 uv)
-        {
-            var patternType = GetOptionValue<PatternType>("Pattern Type");
-            var colorA = GetOptionValue<Color>("Color A");
-            var colorB = GetOptionValue<Color>("Color B");
-            var scaleX = GetOptionValue<float>("Scale X");
-            var scaleY = GetOptionValue<float>("Scale Y");
-            var thickness = GetOptionValue<float>("Thickness");
-            var offsetX = GetOptionValue<float>("Offset X");
-            var offsetY = GetOptionValue<float>("Offset Y");
-            var rotation = GetOptionValue<float>("Rotation");
-
-            var vColorA = new v128(colorA.r, colorA.g, colorA.b, colorA.a);
-            var vColorB = new v128(colorB.r, colorB.g, colorB.b, colorB.a);
-            var vColorDiff = Sse.sub_ps(vColorB, vColorA);
-
-            var rotRad = rotation * Mathf.Deg2Rad;
-            var cosRot = Mathf.Cos(rotRad);
-            var sinRot = Mathf.Sin(rotRad);
-
-            // Apply rotation
-            var rotU = uv.x * cosRot - uv.y * sinRot;
-            var rotV = uv.x * sinRot + uv.y * cosRot;
-
-            // Scale
-            var scaledU = rotU * scaleX;
-            var scaledV = rotV * scaleY;
-
-            var pattern = patternType switch
-            {
-                PatternType.Checkerboard => GenerateCheckerboard(scaledU, scaledV),
-                PatternType.Stripes => GenerateStripes(scaledU, thickness),
-                PatternType.Dots => GenerateDots(scaledU, scaledV, thickness),
-                PatternType.Grid => GenerateGrid(scaledU, scaledV, thickness),
-                PatternType.Brick => GenerateBrick(scaledU, scaledV, thickness),
-                PatternType.Hexagon => GenerateHexagon(scaledU, scaledV, thickness),
-                PatternType.Spiral => GenerateSpiral(scaledU, scaledV, scaleX),
-                PatternType.Wave => GenerateWave(scaledU, scaledV, thickness),
-                _ => 0.0f
-            };
-
-            // Interpolate colors
-            var vPattern = Sse.set1_ps(pattern);
-            var vFinal = Sse.add_ps(vColorA, Sse.mul_ps(vColorDiff, vPattern));
-
-            SetPortValue("Output", vFinal.ToColor());
         }
 
         private static float GenerateCheckerboard(float u, float v)

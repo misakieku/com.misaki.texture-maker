@@ -1,16 +1,18 @@
 using System.Runtime.CompilerServices;
 using UnityEditor;
 using UnityEngine;
+using Misaki.TextureMaker.CodeGen;
+using Unity.GraphToolkit.Editor;
 
 namespace Misaki.TextureMaker
 {
     internal class ExportTexture2d : OutputNode
     {
-        private Texture2D _outputTexture;
+        private IPort _inputPort;
 
         protected override void OnDefineInputPorts(IPortDefinitionContext context)
         {
-            context.AddInputPort<Color>("Input").Build();
+            _inputPort = context.AddInputPort<Color>("Input").Build();
         }
 
         protected override void OnDefineOptions(IOptionDefinitionContext context)
@@ -25,56 +27,94 @@ namespace Misaki.TextureMaker
             return !string.IsNullOrEmpty(path) && (path.EndsWith(".png") || path.EndsWith(".jpg") || path.EndsWith(".jpeg"));
         }
 
-        public override void Initialize()
+        public override void GenerateDataFields(ICodeGenContext context, string nodeId)
         {
-            var width = GetInputPortValue<int>(WIDTH_PORT_NAME);
-            var height = GetInputPortValue<int>(HEIGHT_PORT_NAME);
+            context.AddDataField("Unity.Collections.NativeArray<UnityEngine.Color>", $"outputData_{nodeId}", $"Output texture data for {nodeId}");
+            context.AddDataField("string", $"outputPath_{nodeId}", $"Output path for {nodeId}");
+            context.AddDataField("SupportedTextureFormat", $"outputFormat_{nodeId}", $"Output format for {nodeId}");
+            context.AddDataField("int", $"outputWidth_{nodeId}", $"Output width for {nodeId}");
+            context.AddDataField("int", $"outputHeight_{nodeId}", $"Output height for {nodeId}");
+        }
+
+        public override void GenerateDataInitialization(ICodeGenContext context, string nodeId)
+        {
+            var outputPath = GetOptionValue<string>("Output Path");
             var format = GetOptionValue<SupportedTextureFormat>("Format");
 
-            var path = GetOptionValue<string>("Output Path");
-            if (!IsValidPath(path))
-            {
-                throw new System.ArgumentException($"Invalid output path '{path}'. Supported formats are .png, .jpg, and .jpeg.");
-            }
-
-            _outputTexture = new Texture2D(width, height, (TextureFormat)format, false);
+            context.AddInitializationLine($"data.outputPath_{nodeId} = \"{outputPath}\";");
+            context.AddInitializationLine($"data.outputFormat_{nodeId} = SupportedTextureFormat.{format};");
+            context.AddInitializationLine($"// Width and height will be set from input ports");
         }
 
-        public override void Execute(Vector2 uv)
+        public override void GeneratePrepareCode(ICodeGenContext context, string nodeId)
         {
-            var input = GetInputPortValue<Color>("Input");
+            context.AddUsing("Unity.Collections");
 
-            var pos = GraphUtility.GetTexturePixelPosition(_outputTexture, uv);
-            _outputTexture.SetPixel(pos.x, pos.y, input);
+            context.AddPrepareLine($"// Prepare ExportTexture2d {nodeId}");
+            context.AddPrepareLine($"// TODO: Get width and height from input ports");
+            context.AddPrepareLine($"data.outputWidth_{nodeId} = 512; // Default, should come from input");
+            context.AddPrepareLine($"data.outputHeight_{nodeId} = 512; // Default, should come from input");
+            context.AddPrepareLine($"var totalPixels_{nodeId} = data.outputWidth_{nodeId} * data.outputHeight_{nodeId};");
+            context.AddPrepareLine($"data.outputData_{nodeId} = new Unity.Collections.NativeArray<UnityEngine.Color>(totalPixels_{nodeId}, Unity.Collections.Allocator.Persistent);");
         }
 
-        public override void Complete()
+        public override void GenerateFinalizeCode(ICodeGenContext context, string nodeId)
         {
-            var path = GetOptionValue<string>("Output Path");
+            context.AddUsing("UnityEditor");
+            context.AddUsing("System.IO");
 
-            _outputTexture.Apply();
-
-            var extension = System.IO.Path.GetExtension(path).ToLowerInvariant();
-            switch (extension)
-            {
-                case ".png":
-                    System.IO.File.WriteAllBytes(path, _outputTexture.EncodeToPNG());
-                    break;
-                case ".jpg":
-                case ".jpeg":
-                    System.IO.File.WriteAllBytes(path, _outputTexture.EncodeToJPG());
-                    break;
-                default:
-                    Debug.LogWarning($"Unsupported output format '{extension}'. Only .png, .jpg, and .jpeg are supported.");
-                    goto CleanGraphResource;
-            }
-
-            AssetDatabase.ImportAsset(path);
-            AssetDatabase.Refresh();
-
-        CleanGraphResource:
-            Object.DestroyImmediate(_outputTexture);
-            _outputTexture = null;
+            context.AddFinalizeLine($"// Finalize ExportTexture2d {nodeId}");
+            context.AddFinalizeLine($"if (data.outputData_{nodeId}.IsCreated)");
+            context.AddFinalizeLine($"{{");
+            context.AddFinalizeLine($"    var texture_{nodeId} = new Texture2D(data.outputWidth_{nodeId}, data.outputHeight_{nodeId}, (TextureFormat)data.outputFormat_{nodeId}, false);");
+            context.AddFinalizeLine($"    texture_{nodeId}.SetPixels(data.outputData_{nodeId}.ToArray());");
+            context.AddFinalizeLine($"    texture_{nodeId}.Apply();");
+            context.AddFinalizeLine($"");
+            context.AddFinalizeLine($"    var extension_{nodeId} = System.IO.Path.GetExtension(data.outputPath_{nodeId}).ToLowerInvariant();");
+            context.AddFinalizeLine($"    switch (extension_{nodeId})");
+            context.AddFinalizeLine($"    {{");
+            context.AddFinalizeLine($"        case \".png\":");
+            context.AddFinalizeLine($"            System.IO.File.WriteAllBytes(data.outputPath_{nodeId}, texture_{nodeId}.EncodeToPNG());");
+            context.AddFinalizeLine($"            break;");
+            context.AddFinalizeLine($"        case \".jpg\":");
+            context.AddFinalizeLine($"        case \".jpeg\":");
+            context.AddFinalizeLine($"            System.IO.File.WriteAllBytes(data.outputPath_{nodeId}, texture_{nodeId}.EncodeToJPG());");
+            context.AddFinalizeLine($"            break;");
+            context.AddFinalizeLine($"        default:");
+            context.AddFinalizeLine($"            UnityEngine.Debug.LogWarning($\"Unsupported output format '{{extension_{nodeId}}}'. Using PNG.\");");
+            context.AddFinalizeLine($"            System.IO.File.WriteAllBytes(data.outputPath_{nodeId}, texture_{nodeId}.EncodeToPNG());");
+            context.AddFinalizeLine($"            break;");
+            context.AddFinalizeLine($"    }}");
+            context.AddFinalizeLine($"");
+            context.AddFinalizeLine($"    AssetDatabase.ImportAsset(data.outputPath_{nodeId});");
+            context.AddFinalizeLine($"    AssetDatabase.Refresh();");
+            context.AddFinalizeLine($"    UnityEngine.Object.DestroyImmediate(texture_{nodeId});");
+            context.AddFinalizeLine($"    data.outputData_{nodeId}.Dispose();");
+            context.AddFinalizeLine($"}}");
         }
+
+        public override void GenerateCode(ICodeGenContext context, string nodeId)
+        {
+            context.AddUsing("Unity.Mathematics");
+
+            var inputVar = context.GetInputVariable(_inputPort);
+
+            context.AddLine($"// ExportTexture2d Node {nodeId}");
+            
+            // Declare input variable if not connected
+            if (!_inputPort.isConnected)
+            {
+                var inputType = GetPortTypeName(_inputPort.dataType);
+                context.DeclareVariable(inputType, inputVar, "Color.black");
+            }
+            
+            context.AddLine($"var pixelX_{nodeId} = Unity.Mathematics.math.clamp((int)(uv.x * (data.outputWidth_{nodeId} - 1)), 0, data.outputWidth_{nodeId} - 1);");
+            context.AddLine($"var pixelY_{nodeId} = Unity.Mathematics.math.clamp((int)(uv.y * (data.outputHeight_{nodeId} - 1)), 0, data.outputHeight_{nodeId} - 1);");
+            context.AddLine($"var pixelIndex_{nodeId} = pixelY_{nodeId} * data.outputWidth_{nodeId} + pixelX_{nodeId};");
+            context.AddLine($"data.outputData_{nodeId}[pixelIndex_{nodeId}] = {inputVar};");
+        }
+
+        // Remove old methods - we don't need them anymore
+        // Initialize(), Execute(), Complete() are replaced by the new system
     }
 }

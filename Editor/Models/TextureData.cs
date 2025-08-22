@@ -9,7 +9,7 @@ using static Unity.Burst.Intrinsics.X86;
 
 namespace Misaki.TextureMaker
 {
-    internal enum SupportedTextureFormat
+    public enum SupportedTextureFormat
     {
         R8 = TextureFormat.R8,
         Alpha8 = TextureFormat.Alpha8,
