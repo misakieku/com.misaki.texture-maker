@@ -1,9 +1,10 @@
 ﻿using Misaki.GraphProcessor.Editor;
-using Misaki.TextureMaker.CodeGen;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Unity.GraphToolkit.Editor;
+using UnityEditor;
 using UnityEngine;
 
 namespace Misaki.TextureMaker
@@ -12,155 +13,157 @@ namespace Misaki.TextureMaker
     {
         public struct BuildOption : IBuildOption
         {
+            public string outputName;
         }
 
         private readonly Graph _graph;
-        private readonly Dictionary<OutputNode, List<ITextureExecutable>> _processed;
-        private readonly List<IPort> _portsPool;
+        private readonly ISorter _sorter;
+        private readonly IDataFlowManager _flowManager;
+        private readonly Dictionary<OutputNode, List<INode>> _processed;
+        private readonly HashSet<ICodeGenerationNode> _visitedGenNodes;
+
+        private BuildOption _option;
 
         public TextureMakerGraphProcessor(Graph graph)
         {
             _graph = graph;
+            _sorter = new TopologicalSorter();
+            _flowManager = new DataFlowManager();
             _processed = new();
-            _portsPool = new();
-        }
-
-        private IEnumerable<INode> GetDependentNodes(INode node)
-        {
-            var ports = node.GetInputPorts();
-
-            if (ports == null)
-            {
-                yield break;
-            }
-
-            foreach (var port in ports)
-            {
-                if (!port.isConnected)
-                {
-                    continue;
-                }
-
-                port.GetConnectedPorts(_portsPool);
-                foreach (var connectedPort in _portsPool)
-                {
-                    yield return connectedPort.GetNode();
-                }
-            }
-        }
-
-        private void ProcessTopologicalOrder(OutputNode masterNode, List<ITextureExecutable> nodeContainer)
-        {
-            var visited = new HashSet<ITextureExecutable>();
-            var visiting = new HashSet<ITextureExecutable>();
-
-            // Need manual traversal state tracking in a iterative dfs
-            var stack = new Stack<(ITextureExecutable node, bool isPostProcessing)>();
-
-            stack.Push((masterNode, false));
-
-            while (stack.Count > 0)
-            {
-                var (currentNode, isPostProcessing) = stack.Pop();
-
-                if (isPostProcessing)
-                {
-                    // Post-processing: add to processed list and mark as visited
-                    visiting.Remove(currentNode);
-                    visited.Add(currentNode);
-
-                    nodeContainer.Add(currentNode);
-                }
-                else
-                {
-                    // Pre-processing: check for cycles and add dependencies
-                    if (visiting.Contains(currentNode))
-                    {
-                        throw new System.InvalidOperationException($"Circular dependency detected in graph involving node: {currentNode}");
-                    }
-
-                    if (visited.Contains(currentNode))
-                    {
-                        continue;
-                    }
-
-                    visiting.Add(currentNode);
-
-                    // Push post-processing entry for this node
-                    stack.Push((currentNode, true));
-
-                    INode[] dependencies;
-                    if (currentNode is ICustomDependency dependent)
-                    {
-                        dependencies = dependent.GetDependentNodes(GraphFlow.Backward);
-                    }
-                    else
-                    {
-                        dependencies = GetDependentNodes(currentNode).ToArray();
-                    }
-
-                    // Push all dependencies for pre-processing (in reverse order to maintain proper traversal order)
-                    for (var i = dependencies.Length - 1; i >= 0; i--)
-                    {
-                        var dependency = dependencies[i];
-                        if (!visited.Contains(dependency) && dependency is ITextureExecutable executable)
-                        {
-                            stack.Push((executable, false));
-                        }
-                    }
-                }
-            }
+            _visitedGenNodes = new();
         }
 
         public void BuildGraph<T>(in T buildOption)
             where T : IBuildOption
         {
-            var nodes = _graph.GetNodes().ToArray();
+            if (buildOption is not BuildOption option)
+            {
+                throw new ArgumentException($"Invalid build option type: {typeof(T)}");
+            }
+
+            _option = option;
+
+            var nodes = _graph.GetNodes().OfType<OutputNode>();
 
             _processed.Clear();
-            foreach (var node in nodes.Where(n => n is OutputNode))
+            _visitedGenNodes.Clear();
+
+            foreach (var node in nodes)
             {
-                var processedNodes = new List<ITextureExecutable>();
-                ProcessTopologicalOrder((OutputNode)node, processedNodes);
-                _processed[(OutputNode)node] = processedNodes;
+                var processedNodes = _sorter.Sort(node);
+                _processed[node] = processedNodes;
+
+                foreach (var n in processedNodes.OfType<ICodeGenerationNode>())
+                {
+                    _visitedGenNodes.Add(n);
+                }
             }
         }
 
         public void ExecuteGraph()
         {
+            ValidateExecutionState();
+
+            var library = new ShaderLibrary();
+            library.AddInclude("Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl");
+            library.AddInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl");
+
+            foreach (var node in _visitedGenNodes)
+            {
+                node.Initialize(library);
+            }
+
+            var compiler = new InstructionCompiler(library);
+
+            PopulateInstructions(library, compiler);
+
+            var code = compiler.Compile();
+            if (string.IsNullOrEmpty(code))
+            {
+                throw new InvalidOperationException("Compile failed.");
+            }
+
+            var index = 0;
+            var computeShader = CreateComputeShader(code);
+
             foreach (var kvp in _processed)
             {
-                var outputNode = kvp.Key;
+                ExecuteComputeShader(computeShader, index, kvp.Key, library);
+                index++;
+            }
 
-                try
-                {
-                    // Generate optimized execution code
-                    var codeGenerator = new TextureCodeGenerator();
-                    var generatedCode = codeGenerator.GenerateExecutionCode(kvp.Value);
-
-                    // TODO: Implement runtime compilation and execution
-                    // For now, we just generate the code for inspection
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogException(ex);
-                }
+            foreach (var node in _visitedGenNodes)
+            {
+                node.Cleanup(computeShader);
             }
         }
 
-        /// <summary>
-        /// Generate code for debugging without executing the graph
-        /// </summary>
-        public void GenerateCodeOnly()
+        private void PopulateInstructions(ShaderLibrary library, InstructionCompiler compiler)
         {
+            _flowManager.Reset();
+            var index = 0;
             foreach (var kvp in _processed)
             {
-                var codeGenerator = new TextureCodeGenerator();
-                var generatedCode = codeGenerator.GenerateExecutionCode(kvp.Value);
+                var ctx = new CodeGenContext(library);
+                foreach (var node in kvp.Value)
+                {
+                    if (node is ICodeGenerationNode codeGenNode)
+                    {
+                        codeGenNode.GenerateCode(ctx);
+                    }
 
-                Debug.Log($"Generated code for output node {kvp.Key}:");
-                Debug.Log(generatedCode);
+                    _flowManager.PushPortData(node);
+                }
+
+                compiler.AddContext(ctx, index++);
             }
+        }
+
+        private void ValidateExecutionState()
+        {
+            if (string.IsNullOrEmpty(_option.outputName))
+            {
+                throw new InvalidOperationException("Output path is not specified.");
+            }
+
+            if (_processed.Count == 0 || _visitedGenNodes.Count == 0)
+            {
+                throw new InvalidOperationException("Graph is not built. Please call BuildGraph() before ExecuteGraph().");
+            }
+        }
+
+        private ComputeShader CreateComputeShader(string code)
+        {
+            const string outputDir = "Assets/Editor/TextureMaker/Generated/";
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+            }
+
+            var hlslPath = Path.Combine(outputDir, _option.outputName + ".compute");
+            File.WriteAllText(hlslPath, code);
+            AssetDatabase.ImportAsset(hlslPath);
+            AssetDatabase.Refresh();
+
+            return AssetDatabase.LoadAssetAtPath<ComputeShader>(hlslPath);
+        }
+
+        private void ExecuteComputeShader(ComputeShader computeShader, int kernelIndex, OutputNode outputNode, IShaderLibrary library)
+        {
+            var width = outputNode.Width;
+            var height = outputNode.Height;
+
+            computeShader.SetVector("textureSize", new Vector4(width, height, 1.0f / width, 1.0f / height));
+
+            foreach (var variable in library.Variables)
+            {
+                variable.bindingCallback?.Invoke(computeShader, kernelIndex, variable.declaration.name);
+            }
+
+            // Dispatch the compute shader
+            var threadGroupsX = (width + InstructionCompiler.threadGroupSize.x - 1) / InstructionCompiler.threadGroupSize.x;
+            var threadGroupsY = (height + InstructionCompiler.threadGroupSize.y - 1) / InstructionCompiler.threadGroupSize.y;
+            computeShader.Dispatch(kernelIndex, threadGroupsX, threadGroupsY, InstructionCompiler.threadGroupSize.z);
         }
     }
 }

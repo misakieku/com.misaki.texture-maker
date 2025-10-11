@@ -6,10 +6,10 @@ using UnityEngine.UIElements;
 namespace Misaki.TextureMaker
 {
     [CustomEditor(typeof(DefaultAsset))]
-    public class TextureMakerGraphEditor : UnityEditor.Editor
+    public class TextureMakerGraphEditor : Editor
     {
         private TextureMakerGraph _graphAsset;
-        private AssetImporter _importer;
+        private string _assetPath;
         private bool _isGraphAsset;
 
         private void OnEnable()
@@ -19,7 +19,7 @@ namespace Misaki.TextureMaker
             if (Path.GetExtension(path) == '.' + TextureMakerGraph.EXTENSION)
             {
                 _graphAsset = GraphDatabase.LoadGraph<TextureMakerGraph>(path);
-                _importer = AssetImporter.GetAtPath(path);
+                _assetPath = path;
                 _isGraphAsset = true;
             }
         }
@@ -34,7 +34,7 @@ namespace Misaki.TextureMaker
             var root = new VisualElement();
             var executeButton = new Button(() =>
             {
-                _graphAsset.Execute();
+                _graphAsset.Execute(Path.GetFileNameWithoutExtension(_assetPath));
             })
             {
                 text = "Execute Graph"
