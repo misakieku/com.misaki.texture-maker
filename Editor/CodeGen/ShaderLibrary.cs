@@ -65,10 +65,6 @@ namespace Misaki.TextureMaker
         public string AddPortVariable(ShaderVariableType type, IPort port)
         {
             var node = port.GetNode();
-            if (node is not DataNode dataNode)
-            {
-                throw new InvalidOperationException("Port's node is not a DataNode");
-            }
 
             var name = CodeGenUtility.GetUniqueVariableName(port);
             return AddVariableExactName(type, name, (shader, index, name) =>
@@ -76,15 +72,15 @@ namespace Misaki.TextureMaker
                 switch (type)
                 {
                     case ShaderVariableType.Float:
-                        var floatValue = dataNode.GetInputPortValue<float>(port.name);
+                        var floatValue = GraphUtility.GetPortValue<float>(port);
                         shader.SetFloat(name, floatValue);
                         break;
                     case ShaderVariableType.Int:
-                        var intValue = dataNode.GetInputPortValue<int>(port.name);
+                        var intValue = GraphUtility.GetPortValue<int>(port);
                         shader.SetInt(name, intValue);
                         break;
                     case ShaderVariableType.UInt:
-                        var uintValue = dataNode.GetInputPortValue<uint>(port.name);
+                        var uintValue = GraphUtility.GetPortValue<uint>(port);
                         shader.SetInt(name, (int)uintValue);
                         break;
                     case ShaderVariableType.Float2:
@@ -96,12 +92,12 @@ namespace Misaki.TextureMaker
                     case ShaderVariableType.UInt2:
                     case ShaderVariableType.UInt3:
                     case ShaderVariableType.UInt4:
-                        var vector = dataNode.GetInputPortValue<Vector4>(port.name);
+                        var vector = GraphUtility.GetPortValue<Vector4>(port);
                         shader.SetVector(name, vector);
                         break;
                     case ShaderVariableType.RWTexture2D:
                     case ShaderVariableType.Texture2D:
-                        var texture = dataNode.GetInputPortValue<Texture2D>(port.name);
+                        var texture = GraphUtility.GetPortValue<Texture2D>(port);
                         shader.SetTexture(index, name, texture);
                         break;
                     default:

@@ -18,7 +18,7 @@ namespace Misaki.TextureMaker
             _inputPort = context.AddInputPort<Texture2D>("Input").Build();
             _uvPort = context.AddInputPort<float2>("UV").WithDefaultValue(new Vector2(0.5f, 0.5f)).Build();
 
-            _outputPort = context.AddOutputPort<float4>("Output").Build();
+            _outputPort = context.AddOutputPort<float4>("Result").Build();
         }
 
         public override void Initialize(IShaderLibrary shaderLibrary)

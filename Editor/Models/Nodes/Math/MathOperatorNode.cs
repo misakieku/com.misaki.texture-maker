@@ -7,7 +7,15 @@ namespace Misaki.TextureMaker
     internal struct NodePortDeclaration
     {
         public string displayName;
-        public PortValueType valueType;
+        public ShaderVariableType valueType;
+    }
+
+    internal enum PortValueType
+    {
+        Float,
+        Float2,
+        Float3,
+        Float4
     }
 
     internal abstract class MathOperatorNode : CodeGenerationNode
@@ -23,16 +31,8 @@ namespace Misaki.TextureMaker
             new NodePortDeclaration { displayName = "B", valueType = ValueType },
         };
 
-        protected PortValueType ValueType => GetOptionValue<PortValueType>(VALUE_TYPE_OPTION_NAME);
-
-        private static Type GetDataType(PortValueType valueType) => valueType switch
-        {
-            PortValueType.Float => typeof(float),
-            PortValueType.Float2 => typeof(float2),
-            PortValueType.Float3 => typeof(float3),
-            PortValueType.Float4 => typeof(float4),
-            _ => typeof(float4)
-        };
+        protected virtual ShaderVariableType ReturnType => ValueType;
+        protected ShaderVariableType ValueType => ToShaderVariableType(GetOptionValue<PortValueType>(VALUE_TYPE_OPTION_NAME));
 
         protected sealed override void OnDefinePorts(IPortDefinitionContext context)
         {
@@ -40,27 +40,35 @@ namespace Misaki.TextureMaker
             for (var i = 0; i < InputDeclarations.Length; i++)
             {
                 var decl = InputDeclarations[i];
-                _inputPorts[i] = context.AddInputPort(decl.displayName).WithDataType(GetDataType(decl.valueType)).Build();
+                _inputPorts[i] = context.AddInputPort(decl.displayName).WithDataType(decl.valueType.ToType()).Build();
             }
 
-            _outputPort = context.AddOutputPort("Result").WithDataType(GetDataType(ValueType)).Build();
+            _outputPort = context.AddOutputPort("Result").WithDataType(ReturnType.ToType()).Build();
         }
 
         protected sealed override void OnDefineOptions(IOptionDefinitionContext context)
         {
             context.AddOption<PortValueType>(VALUE_TYPE_OPTION_NAME).WithDefaultValue(PortValueType.Float4).ShowInInspectorOnly().Build();
+            OnDefineNodeOptions(context);
         }
 
-        private static Expression ToConstantExpr(object data, PortValueType dataType)
+        protected virtual void OnDefineNodeOptions(IOptionDefinitionContext context)
         {
-            return data switch
+        }
+
+        private static Expression ToConstantExpr(object data, ShaderVariableType dataType)
+        {
+            var expr = data switch
             {
-                float f when dataType == PortValueType.Float => new ConstantExpr(f.ToString("F")),
-                float2 v2 when dataType == PortValueType.Float2 => new ConstantExpr($"float2({v2.x}, {v2.y})"),
-                float3 v3 when dataType == PortValueType.Float3 => new ConstantExpr($"float3({v3.x}, {v3.y}, {v3.z})"),
-                float4 v4 when dataType == PortValueType.Float4 => new ConstantExpr($"float4({v4.x}, {v4.y}, {v4.z}, {v4.w})"),
+                float f when dataType == ShaderVariableType.Float => new ConstantExpr(f.ToString("F")),
+                float2 v2 when dataType == ShaderVariableType.Float2 => new ConstantExpr($"float2({v2.x}, {v2.y})"),
+                float3 v3 when dataType == ShaderVariableType.Float3 => new ConstantExpr($"float3({v3.x}, {v3.y}, {v3.z})"),
+                float4 v4 when dataType == ShaderVariableType.Float4 => new ConstantExpr($"float4({v4.x}, {v4.y}, {v4.z}, {v4.w})"),
+                bool b when dataType == ShaderVariableType.Bool => new ConstantExpr(b ? "true" : "false"),
                 _ => throw new InvalidOperationException($"Invalid data type {data.GetType()} with PortValueType {dataType}"),
             };
+
+            return expr;
         }
 
         private static ShaderVariableType ToShaderVariableType(PortValueType dataType)
@@ -77,12 +85,10 @@ namespace Misaki.TextureMaker
 
         public sealed override void GenerateCode(ICodeGenContext ctx)
         {
-            var dataType = GetOptionValue<PortValueType>(VALUE_TYPE_OPTION_NAME);
-
             var inputVars = new string[_inputPorts.Length];
             for (var i = 0; i < _inputPorts.Length; i++)
             {
-                var sharpType = ToShaderVariableType(InputDeclarations[i].valueType);
+                var sharpType = InputDeclarations[i].valueType;
                 inputVars[i] = CodeGenUtility.GetInputVariableName(_inputPorts[i], sharpType, ctx, data =>
                 {
                     return ToConstantExpr(data, InputDeclarations[i].valueType);
@@ -94,7 +100,7 @@ namespace Misaki.TextureMaker
                 expression = BuildExpression(inputVars),
                 result = new VariableDeclaration
                 {
-                    type = ToShaderVariableType(dataType),
+                    type = ReturnType,
                     name = CodeGenUtility.GetUniqueVariableName(_outputPort)
                 },
             });

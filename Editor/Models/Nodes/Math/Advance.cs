@@ -112,7 +112,7 @@ namespace Misaki.TextureMaker
         protected override NodePortDeclaration[] InputDeclarations => new[]
         {
             new NodePortDeclaration { displayName = "Value", valueType = ValueType },
-            new NodePortDeclaration { displayName = "Steps", valueType = PortValueType.Float },
+            new NodePortDeclaration { displayName = "Steps", valueType = ShaderVariableType.Float },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)

@@ -13,7 +13,7 @@ namespace Misaki.TextureMaker
         public readonly static int3 threadGroupSize = new(8, 8, 1);
 
         private readonly IShaderLibrary _shaderLibrary;
-        private List<ICodeGenContext> _codeGenContexts;
+        private readonly List<ICodeGenContext> _codeGenContexts;
 
         public InstructionCompiler(IShaderLibrary shaderLibrary)
         {
@@ -53,7 +53,7 @@ float4 textureSize; // width, height, 1/width, 1/height");
             sb.AppendLine();
         }
 
-        private List<Instruction> InlineInstructions(IReadOnlyList<Instruction> instructions)
+        private IEnumerable<Instruction> InlineInstructions(IReadOnlyList<Instruction> instructions)
         {
             // 1) Collect inline-candidates: constant results that can be substituted.
             var inlineCandidates = new Dictionary<string, Expression>(StringComparer.Ordinal);
@@ -67,7 +67,7 @@ float4 textureSize; // width, height, 1/width, 1/height");
 
             // 2) Build new instruction list, skipping the definitions of inline candidates
             //    and replacing references inside other expressions.
-            var outList = new List<Instruction>(instructions.Count);
+            //var outList = new List<Instruction>(instructions.Count);
             foreach (var instr in instructions)
             {
                 // If this instruction defines a value that we decided to inline, skip it entirely.
@@ -78,75 +78,18 @@ float4 textureSize; // width, height, 1/width, 1/height");
 
                 // Otherwise, produce a copied instruction with an inlined expression.
                 var newInstr = instr;
-                newInstr.expression = InlineInExpression(instr.expression, inlineCandidates);
+                newInstr.expression = instr.expression.Inline(inlineCandidates);
 
                 if (instr.expression is InlineableExpr inlineable)
                 {
                     inlineCandidates[instr.result.name] = inlineable.innerExpression;
+                    // We can skip this instruction as well, since it is just a wrapper for inlining.
+                    continue;
                 }
                 else
                 {
-                    outList.Add(newInstr);
+                    yield return newInstr;
                 }
-            }
-
-            return outList;
-        }
-
-        private Expression InlineInExpression(Expression expr, Dictionary<string, Expression> table)
-        {
-            if (expr == null)
-            {
-                return null;
-            }
-
-            switch (expr)
-            {
-                case VariableExpr v:
-                {
-                    if (table.TryGetValue(v.name, out var inlined))
-                    {
-                        return InlineInExpression(inlined, table);
-                    }
-
-                    return v;
-                }
-
-                case ConstantExpr c:
-                    return c;
-
-                case BinaryExpr b:
-                {
-                    var left = InlineInExpression(b.left, table);
-                    var right = InlineInExpression(b.right, table);
-                    // We don't inline expresion if both sides are constants, because that would require evaluating the expression here, which dxc can handle better.
-                    return new BinaryExpr(left, b.op, right);
-                }
-
-                case FunctionCallExpr call:
-                {
-                    // Inline inside arguments. Preserve OutArgs (they are variable declarations).
-                    var newArgs = new List<Expression>(call.inArguments.Count);
-                    foreach (var a in call.inArguments)
-                    {
-                        newArgs.Add(InlineInExpression(a, table));
-                    }
-
-                    var newCall = new FunctionCallExpr(call.functionName, newArgs);
-                    // copy OutArgs if present (they are VariableDeclaration objects, not expressions)
-                    if (call.outArguments != null && call.outArguments.Count > 0)
-                    {
-                        newCall.outArguments = new List<VariableDeclaration>(call.outArguments);
-                    }
-
-                    return newCall;
-                }
-
-                case InlineableExpr inline:
-                    return InlineInExpression(inline.innerExpression, table);
-
-                default:
-                    return expr;
             }
         }
 
@@ -186,7 +129,6 @@ float4 textureSize; // width, height, 1/width, 1/height");
                         typeStr = "void"; // Fallback to void, though this should not happen
                     }
 
-                    //paramList.Add($"{modifier}{typeStr} {param.name}");
                     paramArray[i] = $"{modifier}{typeStr} {param.name}";
                 }
 
@@ -288,12 +230,11 @@ void {_CS_KERNEL + kernelIndex} (uint3 dispatchThreadID : SV_DispatchThreadID, u
                 GenerateBuiltInVariables(sb);
                 sb.AppendLine();
 
-#if true
-                var inlinedInstructions = InlineInstructions(context.InstructionSet);
+#if DISABLE_INSTR_INLINE
+                foreach (var instr in context.InstructionSet)
 #else
-                var inlinedInstructions = context.InstructionSet;
+                foreach (var instr in InlineInstructions(context.InstructionSet))
 #endif
-                foreach (var instr in inlinedInstructions)
                 {
                     if (instr.result.IsValid)
                     {

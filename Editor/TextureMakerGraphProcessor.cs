@@ -18,7 +18,6 @@ namespace Misaki.TextureMaker
 
         private readonly Graph _graph;
         private readonly ISorter _sorter;
-        private readonly IDataFlowManager _flowManager;
         private readonly Dictionary<OutputNode, List<INode>> _processed;
         private readonly HashSet<ICodeGenerationNode> _visitedGenNodes;
 
@@ -28,7 +27,6 @@ namespace Misaki.TextureMaker
         {
             _graph = graph;
             _sorter = new TopologicalSorter();
-            _flowManager = new DataFlowManager();
             _processed = new();
             _visitedGenNodes = new();
         }
@@ -66,7 +64,6 @@ namespace Misaki.TextureMaker
 
             var library = new ShaderLibrary();
             library.AddInclude("Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl");
-            library.AddInclude("Packages/com.unity.render-pipelines.high-definition/Runtime/ShaderLibrary/ShaderVariables.hlsl");
 
             foreach (var node in _visitedGenNodes)
             {
@@ -83,39 +80,18 @@ namespace Misaki.TextureMaker
                 throw new InvalidOperationException("Compile failed.");
             }
 
-            var index = 0;
             var computeShader = CreateComputeShader(code);
 
+            var index = 0;
             foreach (var kvp in _processed)
             {
-                ExecuteComputeShader(computeShader, index, kvp.Key, library);
+                DispatchShaderKernel(computeShader, index, kvp.Key, library);
                 index++;
             }
 
             foreach (var node in _visitedGenNodes)
             {
                 node.Cleanup(computeShader);
-            }
-        }
-
-        private void PopulateInstructions(ShaderLibrary library, InstructionCompiler compiler)
-        {
-            _flowManager.Reset();
-            var index = 0;
-            foreach (var kvp in _processed)
-            {
-                var ctx = new CodeGenContext(library);
-                foreach (var node in kvp.Value)
-                {
-                    if (node is ICodeGenerationNode codeGenNode)
-                    {
-                        codeGenNode.GenerateCode(ctx);
-                    }
-
-                    _flowManager.PushPortData(node);
-                }
-
-                compiler.AddContext(ctx, index++);
             }
         }
 
@@ -129,6 +105,24 @@ namespace Misaki.TextureMaker
             if (_processed.Count == 0 || _visitedGenNodes.Count == 0)
             {
                 throw new InvalidOperationException("Graph is not built. Please call BuildGraph() before ExecuteGraph().");
+            }
+        }
+
+        private void PopulateInstructions(ShaderLibrary library, InstructionCompiler compiler)
+        {
+            var index = 0;
+            foreach (var kvp in _processed)
+            {
+                var ctx = new CodeGenContext(library);
+                foreach (var node in kvp.Value)
+                {
+                    if (node is ICodeGenerationNode codeGenNode)
+                    {
+                        codeGenNode.GenerateCode(ctx);
+                    }
+                }
+
+                compiler.AddContext(ctx, index++);
             }
         }
 
@@ -148,7 +142,7 @@ namespace Misaki.TextureMaker
             return AssetDatabase.LoadAssetAtPath<ComputeShader>(hlslPath);
         }
 
-        private void ExecuteComputeShader(ComputeShader computeShader, int kernelIndex, OutputNode outputNode, IShaderLibrary library)
+        private void DispatchShaderKernel(ComputeShader computeShader, int kernelIndex, OutputNode outputNode, IShaderLibrary library)
         {
             var width = outputNode.Width;
             var height = outputNode.Height;

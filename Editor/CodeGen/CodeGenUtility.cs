@@ -52,7 +52,7 @@ namespace Misaki.TextureMaker
             return firstConnectedPort.GetNode() switch
             {
                 IConstantNode or IVariableNode => fallback(firstConnectedPort),
-                _ => GetUniqueVariableName(port.firstConnectedPort),
+                _ => GetUniqueVariableName(firstConnectedPort),
             };
         }
 
@@ -64,18 +64,12 @@ namespace Misaki.TextureMaker
         /// <param name="ctx">The code generation context used to add instructions and manage variable declarations.</param>
         /// <param name="fallback">A function that generates an expression from the input value if a new variable must be created. The function is invoked with the input value of type T.</param>
         /// <returns>The name of the variable representing the input value for the specified port.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the connected node is not a DataNode or if the type T is not supported.</exception>
         public static string GetInputVariableName<T>(IPort port, ICodeGenContext ctx, Func<T, Expression> fallback)
         {
             return GetInputVariableName(port, connectedPort =>
             {
                 var node = connectedPort.GetNode();
-                if (node is not DataNode dataNode)
-                {
-                    throw new InvalidOperationException("Connected node is not a DataNode");
-                }
-
-                var value = dataNode.GetInputPortValue<T>(port.name);
+                var value = GraphUtility.GetPortValue<T>(connectedPort);
                 var varName = GetUniqueVariableName(connectedPort);
 
                 ctx.AddInstruction(new Instruction
@@ -116,18 +110,12 @@ namespace Misaki.TextureMaker
         /// <param name="ctx">The code generation context used to add instructions and manage variable declarations.</param>
         /// <param name="instrictionCallback">A callback function that receives the input value and returns an expression to be used in the variable declaration.</param>
         /// <returns>The name of the input variable associated with the specified port.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the connected node is not a DataNode.</exception>
         public static string GetInputVariableName(IPort port, ShaderVariableType variableType, ICodeGenContext ctx, Func<object, Expression> instrictionCallback)
         {
             return GetInputVariableName(port, connectedPort =>
             {
                 var node = connectedPort.GetNode();
-                if (node is not DataNode dataNode)
-                {
-                    throw new InvalidOperationException("Connected node is not a DataNode");
-                }
-
-                var value = dataNode.GetInputPortValue<object>(port.name);
+                var value = GraphUtility.GetPortValue<object>(connectedPort);
                 var varName = GetUniqueVariableName(connectedPort);
 
                 ctx.AddInstruction(new Instruction

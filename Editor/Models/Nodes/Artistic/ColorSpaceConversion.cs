@@ -18,7 +18,7 @@ namespace Misaki.TextureMaker
         protected override void OnDefinePorts(IPortDefinitionContext context)
         {
             _inputPort = context.AddInputPort<float4>("Input").Build();
-            _outputPort = context.AddOutputPort<float4>("Output").Build();
+            _outputPort = context.AddOutputPort<float4>("Result").Build();
         }
 
         protected override void OnDefineOptions(IOptionDefinitionContext context)

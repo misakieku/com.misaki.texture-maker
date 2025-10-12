@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Text;
+﻿using System;
+using Unity.Mathematics;
+using UnityEngine;
 
 namespace Misaki.TextureMaker
 {
@@ -49,135 +50,6 @@ namespace Misaki.TextureMaker
         }
     }
 
-    internal abstract record Expression
-    {
-        public abstract string Emit(int indentLevel);
-    }
-
-    internal static class ExpressionExtensions
-    {
-        public static InlineableExpr AsInlineable(this Expression expr)
-        {
-            return new InlineableExpr(expr);
-        }
-    }
-
-    internal record InlineableExpr : Expression
-    {
-        public Expression innerExpression;
-
-        public InlineableExpr(Expression innerExpression)
-        {
-            this.innerExpression = innerExpression;
-        }
-
-        public override string Emit(int indentLevel)
-        {
-            return innerExpression.Emit(indentLevel);
-        }
-    }
-
-    internal record VariableExpr : Expression
-    {
-        public string name;
-
-        public static readonly VariableExpr Zero = new ("0");
-        public static readonly VariableExpr One = new ("1");
-        public static readonly VariableExpr True = new ("true");
-        public static readonly VariableExpr False = new ("false");
-        public static readonly VariableExpr Null = new (string.Empty);
-
-        public VariableExpr(string name)
-        {
-            this.name = name;
-        }
-
-        public override string Emit(int indentLevel)
-        {
-            return name.Indent(indentLevel);
-        }
-    }
-
-    internal record ConstantExpr : Expression
-    {
-        public string name;
-
-        public static readonly ConstantExpr Zero = new("0");
-        public static readonly ConstantExpr One = new("1");
-        public static readonly ConstantExpr True = new("true");
-        public static readonly ConstantExpr False = new("false");
-        public static readonly ConstantExpr Null = new(string.Empty);
-
-        public ConstantExpr(string name)
-        {
-            this.name = name;
-        }
-
-        public override string Emit(int indentLevel)
-        {
-            return name.Indent(indentLevel);
-        }
-    }
-
-    internal record BinaryExpr : Expression
-    {
-        public Expression left;
-        public Expression right;
-        public string op;
-
-        public BinaryExpr(Expression left, string op, Expression right)
-        {
-            this.left = left;
-            this.right = right;
-            this.op = op;
-        }
-
-        public override string Emit(int indentLevel)
-        {
-            return $"({left.Emit(0)} {op} {right.Emit(0)})".Indent(indentLevel);
-        }
-    }
-
-    internal record FunctionCallExpr : Expression
-    {
-        public string functionName;
-        public List<Expression> inArguments;
-        public List<VariableDeclaration> outArguments;
-
-        public FunctionCallExpr(string functionName, List<Expression> inArguments, List<VariableDeclaration> outArguments = null)
-        {
-            this.functionName = functionName;
-            this.inArguments = inArguments;
-            this.outArguments = outArguments;
-        }
-
-        public override string Emit(int indentLevel)
-        {
-            var sb = new StringBuilder();
-            if (outArguments != null)
-            {
-                foreach (var argDecl in outArguments)
-                {
-                    sb.AppendLine($"{argDecl.ToShaderCode()};".Indent(indentLevel));
-                }
-            }
-
-            var inArgs = inArguments != null ? string.Join(", ", inArguments.ConvertAll(arg => arg.Emit(0))) : string.Empty;
-            var outArgs = outArguments != null ? string.Join(", ", outArguments.ConvertAll(arg => arg.name)) : string.Empty;
-            var allArgs = string.Join(", ", new List<string> { inArgs, outArgs }.FindAll(s => !string.IsNullOrEmpty(s)));
-
-            sb.Append($"{functionName}({allArgs})".Indent(indentLevel));
-
-            return sb.ToString();
-        }
-    }
-
-    internal struct Instruction
-    {
-        public VariableDeclaration result;
-        public Expression expression;
-    }
-
     internal static class ShaderVariableTypeExtensions
     {
         public static string ToHLSLString(this ShaderVariableType type)
@@ -203,5 +75,35 @@ namespace Misaki.TextureMaker
                 _ => string.Empty
             };
         }
+
+        public static Type ToType(this ShaderVariableType type)
+        {
+            return type switch
+            {
+                ShaderVariableType.Float => typeof(float),
+                ShaderVariableType.Float2 => typeof(float2),
+                ShaderVariableType.Float3 => typeof(float3),
+                ShaderVariableType.Float4 => typeof(float4),
+                ShaderVariableType.Int => typeof(int),
+                ShaderVariableType.Int2 => typeof(int2),
+                ShaderVariableType.Int3 => typeof(int3),
+                ShaderVariableType.Int4 => typeof(int4),
+                ShaderVariableType.UInt => typeof(uint),
+                ShaderVariableType.UInt2 => typeof(uint2),
+                ShaderVariableType.UInt3 => typeof(uint3),
+                ShaderVariableType.UInt4 => typeof(uint4),
+                ShaderVariableType.Bool => typeof(bool),
+                ShaderVariableType.Texture2D => typeof(Texture2D),
+                ShaderVariableType.RWTexture2D => typeof(RenderTexture),
+                ShaderVariableType.SamplerState => typeof(object), // No direct mapping
+                _ => typeof(void)
+            };
+        }
+    }
+
+    internal struct Instruction
+    {
+        public VariableDeclaration result;
+        public Expression expression;
     }
 }

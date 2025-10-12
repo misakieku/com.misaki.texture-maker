@@ -1,5 +1,4 @@
-﻿using Misaki.GraphProcessor.Editor;
-using Unity.GraphToolkit.Editor;
+﻿using Unity.GraphToolkit.Editor;
 using UnityEngine;
 
 namespace Misaki.TextureMaker
@@ -25,8 +24,18 @@ namespace Misaki.TextureMaker
         public void Cleanup(ComputeShader shader);
     }
 
-    internal abstract class CodeGenerationNode : DataNode, ICodeGenerationNode
+    internal abstract class CodeGenerationNode : Node, ICodeGenerationNode
     {
+        protected T GetInputPortValue<T>(string portName)
+        {
+            return GraphUtility.GetPortValue<T>(GetInputPortByName(portName));
+        }
+
+        protected T GetOptionValue<T>(string optionName)
+        {
+            return GraphUtility.GetOptionValue<T>(GetNodeOptionByName(optionName));
+        }
+
         public virtual void Initialize(IShaderLibrary shaderLibrary)
         {
         }
