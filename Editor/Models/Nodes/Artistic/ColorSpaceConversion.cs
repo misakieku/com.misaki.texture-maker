@@ -50,14 +50,16 @@ namespace Misaki.TextureMaker
 
             var srgbToLinearFunc = functionTemplate;
             srgbToLinearFunc.name = "ColorSpaceConversion_sRGB_Linear";
-            srgbToLinearFunc.code = @"float4 linearRGBLo = {0} / 12.92;;
+            srgbToLinearFunc.code = @"
+    float4 linearRGBLo = {0} / 12.92;;
     float4 linearRGBHi = pow(max(abs(({0} + 0.055) / 1.055), 1.192092896e-07), 2.4);
     float4 result = float4({0} <= 0.04045) ? linearRGBLo : linearRGBHi;
     return {1} ? float4(result.x, result.y, result.z, {0}.w) : result;";
 
             var linearTosrgbFunc = functionTemplate;
             linearTosrgbFunc.name = "ColorSpaceConversion_Linear_sRGB";
-            linearTosrgbFunc.code = @"float4 sRGBLo = {0} * 12.92;
+            linearTosrgbFunc.code = @"
+    float4 sRGBLo = {0} * 12.92;
     float4 sRGBHi = (pow(max(abs({0}), 1.192092896e-07), 0.4166667) * 1.055) - 0.055;
     float4 result = float4({0} <= 0.0031308) ? sRGBLo : sRGBHi;
     return {1} ? float4(result.x, result.y, result.z, {0}.w) : result;";
@@ -71,12 +73,12 @@ namespace Misaki.TextureMaker
             var conversionType = GetOptionValue<ConversionType>("Conversion Type");
             var preserveAlpha = GetOptionValue<bool>("Preserve Alpha");
 
-            var inputVar = CodeGenUtility.GetInputVariableName<float4>(_inputPort, ctx, color =>
+            var inputVar = ctx.GetInputVariableName<float4>(_inputPort, color =>
             {
                 return new ConstantExpr($"float4({color.x}, {color.y}, {color.z}, {color.w})");
             });
 
-            var outputVar = CodeGenUtility.GetUniqueVariableName(_outputPort);
+            var outputVar = ctx.GetOutputVariableName(_outputPort);
 
             var functionName = conversionType switch
             {

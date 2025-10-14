@@ -24,12 +24,12 @@ namespace Misaki.TextureMaker
 
         public override void GenerateCode(ICodeGenContext ctx)
         {
-            var inputVarR = CodeGenUtility.GetInputVariableName<float>(_inputPortR, ctx, v => new ConstantExpr(v.ToString("F")));
-            var inputVarG = CodeGenUtility.GetInputVariableName<float>(_inputPortG, ctx, v => new ConstantExpr(v.ToString("F")));
-            var inputVarB = CodeGenUtility.GetInputVariableName<float>(_inputPortB, ctx, v => new ConstantExpr(v.ToString("F")));
-            var inputVarA = CodeGenUtility.GetInputVariableName<float>(_inputPortA, ctx, v => new ConstantExpr(v.ToString("F")));
+            var inputVarR = ctx.GetInputVariableName<float>(_inputPortR, v => new ConstantExpr(v.ToString("F")));
+            var inputVarG = ctx.GetInputVariableName<float>(_inputPortG, v => new ConstantExpr(v.ToString("F")));
+            var inputVarB = ctx.GetInputVariableName<float>(_inputPortB, v => new ConstantExpr(v.ToString("F")));
+            var inputVarA = ctx.GetInputVariableName<float>(_inputPortA, v => new ConstantExpr(v.ToString("F")));
 
-            var outputVar = CodeGenUtility.GetUniqueVariableName(_outputPort);
+            var outputVar = ctx.GetOutputVariableName(_outputPort);
 
             ctx.AddInstruction(new Instruction
             {

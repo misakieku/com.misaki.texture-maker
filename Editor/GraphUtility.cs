@@ -8,11 +8,17 @@ namespace Misaki.TextureMaker
         public static T GetPortValue<T>(IPort port)
         {
             T value;
+
             var success = (port.firstConnectedPort?.GetNode()) switch
             {
                 IConstantNode constantNode => constantNode.TryGetValue(out value),
                 IVariableNode variableNode => variableNode.variable.TryGetDefaultValue(out value),
-                _ => port.TryGetValue(out value),
+                _ => port.GetNode() switch
+                {
+                    IConstantNode constantNode => constantNode.TryGetValue(out value),
+                    IVariableNode variableNode => variableNode.variable.TryGetDefaultValue(out value),
+                    _ => port.TryGetValue(out value),
+                }
             };
 
             if (success)

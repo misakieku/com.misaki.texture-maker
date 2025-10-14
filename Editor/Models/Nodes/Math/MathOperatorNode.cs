@@ -56,21 +56,6 @@ namespace Misaki.TextureMaker
         {
         }
 
-        private static Expression ToConstantExpr(object data, ShaderVariableType dataType)
-        {
-            var expr = data switch
-            {
-                float f when dataType == ShaderVariableType.Float => new ConstantExpr(f.ToString("F")),
-                float2 v2 when dataType == ShaderVariableType.Float2 => new ConstantExpr($"float2({v2.x}, {v2.y})"),
-                float3 v3 when dataType == ShaderVariableType.Float3 => new ConstantExpr($"float3({v3.x}, {v3.y}, {v3.z})"),
-                float4 v4 when dataType == ShaderVariableType.Float4 => new ConstantExpr($"float4({v4.x}, {v4.y}, {v4.z}, {v4.w})"),
-                bool b when dataType == ShaderVariableType.Bool => new ConstantExpr(b ? "true" : "false"),
-                _ => throw new InvalidOperationException($"Invalid data type {data.GetType()} with PortValueType {dataType}"),
-            };
-
-            return expr;
-        }
-
         private static ShaderVariableType ToShaderVariableType(PortValueType dataType)
         {
             return dataType switch
@@ -89,9 +74,9 @@ namespace Misaki.TextureMaker
             for (var i = 0; i < _inputPorts.Length; i++)
             {
                 var sharpType = InputDeclarations[i].valueType;
-                inputVars[i] = CodeGenUtility.GetInputVariableName(_inputPorts[i], sharpType, ctx, data =>
+                inputVars[i] = ctx.GetInputVariableName(_inputPorts[i], sharpType, data =>
                 {
-                    return ToConstantExpr(data, InputDeclarations[i].valueType);
+                    return CodeGenUtility.ToConstantExpr(data, InputDeclarations[i].valueType);
                 });
             }
 
@@ -101,7 +86,7 @@ namespace Misaki.TextureMaker
                 result = new VariableDeclaration
                 {
                     type = ReturnType,
-                    name = CodeGenUtility.GetUniqueVariableName(_outputPort)
+                    name = ctx.GetOutputVariableName(_outputPort)
                 },
             });
         }

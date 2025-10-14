@@ -13,6 +13,9 @@ namespace Misaki.TextureMaker
         }
 
         public string GetBuiltInVariableName(BuiltInVariable var);
+        public string GetInputVariableName<T>(IPort port, Func<T, Expression> fallback);
+        public string GetInputVariableName(IPort port, ShaderVariableType variableType, Func<object, Expression> fallback);
+        public string GetOutputVariableName(IPort port);
         public void AddInstruction(Instruction instruction);
     }
 }

@@ -31,7 +31,7 @@ namespace Misaki.TextureMaker
         public ShaderVariableType type;
         public string name;
 
-        public readonly bool IsValid => type != ShaderVariableType.None && !string.IsNullOrEmpty(name);
+        public readonly bool IsValid => !string.IsNullOrEmpty(name);
 
         public readonly string ToShaderCode()
         {
@@ -56,6 +56,7 @@ namespace Misaki.TextureMaker
         {
             return type switch
             {
+                ShaderVariableType.Void => "void",
                 ShaderVariableType.Float => "float",
                 ShaderVariableType.Float2 => "float2",
                 ShaderVariableType.Float3 => "float3",
@@ -97,6 +98,29 @@ namespace Misaki.TextureMaker
                 ShaderVariableType.RWTexture2D => typeof(RenderTexture),
                 ShaderVariableType.SamplerState => typeof(object), // No direct mapping
                 _ => typeof(void)
+            };
+        }
+
+        public static ShaderVariableType ToShaderVariableType(this Type type)
+        {
+            return type switch
+            {
+                Type t when t == typeof(float) => ShaderVariableType.Float,
+                Type t when t == typeof(float2) => ShaderVariableType.Float2,
+                Type t when t == typeof(float3) => ShaderVariableType.Float3,
+                Type t when t == typeof(float4) => ShaderVariableType.Float4,
+                Type t when t == typeof(int) => ShaderVariableType.Int,
+                Type t when t == typeof(int2) => ShaderVariableType.Int2,
+                Type t when t == typeof(int3) => ShaderVariableType.Int3,
+                Type t when t == typeof(int4) => ShaderVariableType.Int4,
+                Type t when t == typeof(uint) => ShaderVariableType.UInt,
+                Type t when t == typeof(uint2) => ShaderVariableType.UInt2,
+                Type t when t == typeof(uint3) => ShaderVariableType.UInt3,
+                Type t when t == typeof(uint4) => ShaderVariableType.UInt4,
+                Type t when t == typeof(bool) => ShaderVariableType.Bool,
+                Type t when t == typeof(Texture2D) => ShaderVariableType.Texture2D,
+                Type t when t == typeof(RenderTexture) => ShaderVariableType.RWTexture2D,
+                _ => ShaderVariableType.None
             };
         }
     }

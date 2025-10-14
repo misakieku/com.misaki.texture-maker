@@ -1,6 +1,6 @@
-﻿using Misaki.GraphProcessor.Editor;
-using System;
+﻿using System;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Unity.GraphToolkit.Editor;
 using Unity.Mathematics;
 
@@ -12,6 +12,36 @@ namespace Misaki.TextureMaker
     /// </summary>
     internal static class CodeGenUtility
     {
+        public static ConstantExpr ToConstantExpr(object data, ShaderVariableType dataType)
+        {
+            var expr = data switch
+            {
+                float f when dataType == ShaderVariableType.Float => new ConstantExpr(f.ToString("F")),
+                float2 v2 when dataType == ShaderVariableType.Float2 => new ConstantExpr($"float2({v2.x}, {v2.y})"),
+                float3 v3 when dataType == ShaderVariableType.Float3 => new ConstantExpr($"float3({v3.x}, {v3.y}, {v3.z})"),
+                float4 v4 when dataType == ShaderVariableType.Float4 => new ConstantExpr($"float4({v4.x}, {v4.y}, {v4.z}, {v4.w})"),
+                bool b when dataType == ShaderVariableType.Bool => new ConstantExpr(b ? "true" : "false"),
+                _ => throw new InvalidOperationException($"Invalid data type {data.GetType()} with PortValueType {dataType}"),
+            };
+
+            return expr;
+        }
+
+        public static VariableExpr ToVariableExpr(object data, ShaderVariableType dataType)
+        {
+            var expr = data switch
+            {
+                float f when dataType == ShaderVariableType.Float => new VariableExpr(f.ToString("F")),
+                float2 v2 when dataType == ShaderVariableType.Float2 => new VariableExpr($"float2({v2.x}, {v2.y})"),
+                float3 v3 when dataType == ShaderVariableType.Float3 => new VariableExpr($"float3({v3.x}, {v3.y}, {v3.z})"),
+                float4 v4 when dataType == ShaderVariableType.Float4 => new VariableExpr($"float4({v4.x}, {v4.y}, {v4.z}, {v4.w})"),
+                bool b when dataType == ShaderVariableType.Bool => new VariableExpr(b ? "true" : "false"),
+                _ => throw new InvalidOperationException($"Invalid data type {data.GetType()} with PortValueType {dataType}"),
+            };
+
+            return expr;
+        }
+
         /// <summary>
         /// Returns a unique identifier for the specified node based on its hash code.
         /// </summary>
@@ -24,6 +54,33 @@ namespace Misaki.TextureMaker
         }
 
         /// <summary>
+        /// Generates a function name for the specified subgraph node.
+        /// </summary>
+        /// <param name="subgraph">The subgraph node for which to generate the function name. Cannot be null.</param>
+        /// <returns>A string containing the generated function name for the subgraph node.</returns>
+        public static string GetSubGraphFunctionName(ISubgraphNode subgraph)
+        {
+            return $"Generated_SubGraph_{subgraph.GetSubgraph().name}";
+        }
+
+        /// <summary>
+        /// Converts a display name to a valid variable name by replacing non-word characters with underscores.
+        /// </summary>
+        /// <param name="displayName">The display name to convert. Can be any string; if null or empty, an empty string is returned.</param>
+        /// <returns>A string representing the variable name derived from the display name, with non-word characters replaced by
+        ///     underscores and leading or trailing underscores removed. Returns an empty string if the input is null or empty.</returns>
+        public static string DisplayNameToVariableName(string displayName)
+        {
+            if (string.IsNullOrEmpty(displayName))
+            {
+                return string.Empty;
+            }
+
+            var result = Regex.Replace(displayName, @"\W+", "_", RegexOptions.Compiled);
+            return result.Trim('_');
+        }
+
+        /// <summary>
         /// Generates a unique variable name for the specified port based on its associated node and port name.
         /// </summary>
         /// <param name="port">The port for which to generate a unique variable name. Cannot be null.</param>
@@ -31,7 +88,7 @@ namespace Misaki.TextureMaker
         public static string GetUniqueVariableName(IPort port)
         {
             var node = port.GetNode();
-            return $"{node.GetType().Name}_{GetNodeID(node)}_{port.name}";
+            return $"{node.GetType().Name}_{GetNodeID(node)}_{DisplayNameToVariableName(port.displayName)}";
         }
 
         /// <summary>
@@ -68,7 +125,6 @@ namespace Misaki.TextureMaker
         {
             return GetInputVariableName(port, connectedPort =>
             {
-                var node = connectedPort.GetNode();
                 var value = GraphUtility.GetPortValue<T>(connectedPort);
                 var varName = GetUniqueVariableName(connectedPort);
 
@@ -114,7 +170,6 @@ namespace Misaki.TextureMaker
         {
             return GetInputVariableName(port, connectedPort =>
             {
-                var node = connectedPort.GetNode();
                 var value = GraphUtility.GetPortValue<object>(connectedPort);
                 var varName = GetUniqueVariableName(connectedPort);
 

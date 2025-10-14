@@ -44,7 +44,7 @@ namespace Misaki.TextureMaker
 
         public override void GenerateCode(ICodeGenContext ctx)
         {
-            var inputVar = CodeGenUtility.GetInputVariableName<float4>(_inputPort, ctx, color =>
+            var inputVar = ctx.GetInputVariableName<float4>(_inputPort, color =>
             {
                 return new ConstantExpr($"float4({color.x}, {color.y}, {color.z}, {color.w})");
             });
@@ -54,7 +54,7 @@ namespace Misaki.TextureMaker
                 expression = new VariableExpr(inputVar),
                 result = new VariableDeclaration
                 {
-                    type = ShaderVariableType.Void,
+                    type = ShaderVariableType.None,
                     name = $"{_textureVarName}[{ctx.GetBuiltInVariableName(BuiltInVariable.PixelCoordinate)}]"
                 },
             });

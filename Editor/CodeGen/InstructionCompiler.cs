@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Contexts;
 using System.Text;
 using Unity.Mathematics;
 
@@ -53,7 +54,7 @@ float4 textureSize; // width, height, 1/width, 1/height");
             sb.AppendLine();
         }
 
-        private IEnumerable<Instruction> InlineInstructions(IReadOnlyList<Instruction> instructions)
+        private static IEnumerable<Instruction> InlineInstructions(IReadOnlyCollection<Instruction> instructions)
         {
             // 1) Collect inline-candidates: constant results that can be substituted.
             var inlineCandidates = new Dictionary<string, Expression>(StringComparer.Ordinal);
@@ -138,8 +139,7 @@ float4 textureSize; // width, height, 1/width, 1/height");
 
             sb.Append($@"
 {inlineStr}{function.returnType.ToHLSLString()} {function.name} ({parameters})
-{{
-    {realCode}
+{{{realCode}
 }}");
             sb.AppendLine();
         }
@@ -164,7 +164,34 @@ float4 textureSize; // width, height, 1/width, 1/height");
             return _codeGenContexts[kernelIndex];
         }
 
-        public string Compile()
+        private static void CompileInstructions(IReadOnlyCollection<Instruction> instructions, StringBuilder sb)
+        {
+#if DISABLE_INSTR_INLINE
+            foreach (var instr in instructions)
+#else
+            foreach (var instr in InlineInstructions(instructions))
+#endif
+            {
+                if (instr.result.IsValid)
+                {
+                    sb.AppendLine(@$"{instr.result.ToShaderCode()} = {instr.expression.Emit(0)};".Indent(1));
+                }
+                else
+                {
+                    sb.AppendLine(@$"{instr.expression.Emit(1)};");
+                }
+            }
+        }
+
+        public static string CompileInstructions(IReadOnlyCollection<Instruction> instructions)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine();
+            CompileInstructions(instructions, sb);
+            return sb.ToString();
+        }
+
+        public string CompileToShader()
         {
             var sb = new StringBuilder();
 
@@ -230,21 +257,22 @@ void {_CS_KERNEL + kernelIndex} (uint3 dispatchThreadID : SV_DispatchThreadID, u
                 GenerateBuiltInVariables(sb);
                 sb.AppendLine();
 
-#if DISABLE_INSTR_INLINE
-                foreach (var instr in context.InstructionSet)
-#else
-                foreach (var instr in InlineInstructions(context.InstructionSet))
-#endif
-                {
-                    if (instr.result.IsValid)
-                    {
-                        sb.AppendLine(@$"{instr.result.ToShaderCode()} = {instr.expression.Emit(0)};".Indent(1));
-                    }
-                    else
-                    {
-                        sb.AppendLine(@$"{instr.expression.Emit(1)};");
-                    }
-                }
+//#if DISABLE_INSTR_INLINE
+//                foreach (var instr in context.InstructionSet)
+//#else
+//                foreach (var instr in InlineInstructions(context.InstructionSet))
+//#endif
+//                {
+//                    if (instr.result.IsValid)
+//                    {
+//                        sb.AppendLine(@$"{instr.result.ToShaderCode()} = {instr.expression.Emit(0)};".Indent(1));
+//                    }
+//                    else
+//                    {
+//                        sb.AppendLine(@$"{instr.expression.Emit(1)};");
+//                    }
+//                }
+                CompileInstructions(context.InstructionSet, sb);
 
                 sb.AppendLine(@"
 }");

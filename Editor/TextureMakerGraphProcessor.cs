@@ -19,7 +19,7 @@ namespace Misaki.TextureMaker
         private readonly Graph _graph;
         private readonly ISorter _sorter;
         private readonly Dictionary<OutputNode, List<INode>> _processed;
-        private readonly HashSet<ICodeGenerationNode> _visitedGenNodes;
+        private readonly HashSet<INode> _visitedNodes;
 
         private BuildOption _option;
 
@@ -28,7 +28,7 @@ namespace Misaki.TextureMaker
             _graph = graph;
             _sorter = new TopologicalSorter();
             _processed = new();
-            _visitedGenNodes = new();
+            _visitedNodes = new();
         }
 
         public void BuildGraph<T>(in T buildOption)
@@ -44,16 +44,16 @@ namespace Misaki.TextureMaker
             var nodes = _graph.GetNodes().OfType<OutputNode>();
 
             _processed.Clear();
-            _visitedGenNodes.Clear();
+            _visitedNodes.Clear();
 
             foreach (var node in nodes)
             {
                 var processedNodes = _sorter.Sort(node);
                 _processed[node] = processedNodes;
 
-                foreach (var n in processedNodes.OfType<ICodeGenerationNode>())
+                foreach (var n in processedNodes)
                 {
-                    _visitedGenNodes.Add(n);
+                    _visitedNodes.Add(n);
                 }
             }
         }
@@ -63,36 +63,17 @@ namespace Misaki.TextureMaker
             ValidateExecutionState();
 
             var library = new ShaderLibrary();
+            var compiler = new InstructionCompiler(library);
             library.AddInclude("Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl");
 
-            foreach (var node in _visitedGenNodes)
-            {
-                node.Initialize(library);
-            }
+            InitializeNodes(library);
+            PopulateInstructions(compiler);
 
-            var compiler = new InstructionCompiler(library);
-
-            PopulateInstructions(library, compiler);
-
-            var code = compiler.Compile();
-            if (string.IsNullOrEmpty(code))
-            {
-                throw new InvalidOperationException("Compile failed.");
-            }
-
+            var code = compiler.CompileToShader();
             var computeShader = CreateComputeShader(code);
 
-            var index = 0;
-            foreach (var kvp in _processed)
-            {
-                DispatchShaderKernel(computeShader, index, kvp.Key, library);
-                index++;
-            }
-
-            foreach (var node in _visitedGenNodes)
-            {
-                node.Cleanup(computeShader);
-            }
+            DispatchShader(library, computeShader);
+            CleanupNodes(computeShader);
         }
 
         private void ValidateExecutionState()
@@ -102,27 +83,188 @@ namespace Misaki.TextureMaker
                 throw new InvalidOperationException("Output path is not specified.");
             }
 
-            if (_processed.Count == 0 || _visitedGenNodes.Count == 0)
+            if (_processed.Count == 0 || _visitedNodes.Count == 0)
             {
                 throw new InvalidOperationException("Graph is not built. Please call BuildGraph() before ExecuteGraph().");
             }
         }
 
-        private void PopulateInstructions(ShaderLibrary library, InstructionCompiler compiler)
+        private static void GenerateSubgraphFunction(ShaderLibrary library, ISubgraphNode subgraphNode)
+        {
+            var funcDecl = new FunctionDeclaration
+            {
+                name = CodeGenUtility.GetSubGraphFunctionName(subgraphNode),
+                signature = new(),
+                returnType = ShaderVariableType.Void,
+            };
+
+            var inputs = new List<string>();
+            foreach (var inputPort in subgraphNode.GetInputPorts())
+            {
+                var name = CodeGenUtility.DisplayNameToVariableName(inputPort.displayName);
+                var paramType = inputPort.dataType.ToShaderVariableType();
+
+                funcDecl.signature.Add(new ParameterDeclaration
+                {
+                    name = CodeGenUtility.DisplayNameToVariableName(inputPort.displayName),
+                    type = paramType,
+                    modifier = ParameterModifier.In
+                });
+
+                inputs.Add(name);
+            }
+
+            var outputs = new List<string>();
+            foreach (var outputPort in subgraphNode.GetOutputPorts())
+            {
+                var name = CodeGenUtility.DisplayNameToVariableName(outputPort.displayName);
+                var paramType = outputPort.dataType.ToShaderVariableType();
+
+                funcDecl.signature.Add(new ParameterDeclaration
+                {
+                    name = name,
+                    type = paramType,
+                    modifier = ParameterModifier.Out
+                });
+
+                outputs.Add(name);
+            }
+
+            var inputArgsLookup = new Dictionary<IVariable, string>();
+            var outputArgsLookup = new Dictionary<IVariable, string>();
+            var variables = subgraphNode.GetSubgraph().GetVariables();
+
+            var inputIndex = 0;
+            var outputIndex = 0;
+            foreach (var variable in variables)
+            {
+                switch (variable.variableKind)
+                {
+                    case VariableKind.Input:
+                        inputArgsLookup[variable] = inputs[inputIndex++];
+                        break;
+                    case VariableKind.Output:
+                        outputArgsLookup[variable] = outputs[outputIndex++];
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            var nodes = subgraphNode.GetSubgraph().GetNodes();
+            var ctx = new SubGraphCodeGenContext(inputArgsLookup, outputArgsLookup);
+
+            foreach (var codeGennode in nodes.OfType<ICodeGenerationNode>())
+            {
+                codeGennode.GenerateCode(ctx);
+            }
+
+            foreach (var outNode in nodes.OfType<IVariableNode>())
+            {
+                if (outNode.variable.variableKind == VariableKind.Output)
+                {
+                    var valueName = ctx.GetOutputVariableName(outNode.GetInputPort(0).firstConnectedPort);
+                    ctx.AddInstruction(new Instruction
+                    {
+                        expression = new VariableExpr(valueName),
+                        result = new VariableDeclaration
+                        {
+                            name = outputArgsLookup[outNode.variable]
+                        }
+                    });
+                }
+            }
+
+            funcDecl.code = InstructionCompiler.CompileInstructions(ctx.InstructionSet);
+            library.AddFunction(funcDecl);
+        }
+
+        private void InitializeNodes(ShaderLibrary library)
+        {
+            foreach (var node in _visitedNodes)
+            {
+                switch (node)
+                {
+                    case ICodeGenerationNode codeGenNode:
+                        codeGenNode.Initialize(library);
+                        break;
+                    case ISubgraphNode subgraphNode:
+                        GenerateSubgraphFunction(library, subgraphNode);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        private void PopulateInstructions(InstructionCompiler compiler)
         {
             var index = 0;
             foreach (var kvp in _processed)
             {
-                var ctx = new CodeGenContext(library);
+                var ctx = new CodeGenContext();
+
                 foreach (var node in kvp.Value)
                 {
-                    if (node is ICodeGenerationNode codeGenNode)
+                    switch (node)
                     {
-                        codeGenNode.GenerateCode(ctx);
+                        case ICodeGenerationNode codeGenNode:
+                            codeGenNode.GenerateCode(ctx);
+                            break;
+                        case ISubgraphNode subgraphNode:
+                            GenerateSubgraphCall(ctx, subgraphNode);
+                            break;
+                        default:
+                            break;
                     }
                 }
 
                 compiler.AddContext(ctx, index++);
+            }
+        }
+
+        private static void GenerateSubgraphCall(ICodeGenContext ctx, ISubgraphNode subgraphNode)
+        {
+            var inputs = new List<Expression>();
+            foreach (var inputPort in subgraphNode.GetInputPorts())
+            {
+                var inputVar = ctx.GetInputVariableName(inputPort, inputPort.dataType.ToShaderVariableType(), data =>
+                {
+                    return CodeGenUtility.ToConstantExpr(data, inputPort.dataType.ToShaderVariableType());
+                });
+                inputs.Add(new VariableExpr(inputVar));
+            }
+
+            var outputs = new List<VariableDeclaration>();
+            foreach (var outputPort in subgraphNode.GetOutputPorts())
+            {
+                var outputVarName = ctx.GetOutputVariableName(outputPort);
+                outputs.Add(new VariableDeclaration
+                {
+                    type = outputPort.dataType.ToShaderVariableType(),
+                    name = outputVarName
+                });
+            }
+
+            ctx.AddInstruction(new Instruction
+            {
+                expression = new FunctionCallExpr(CodeGenUtility.GetSubGraphFunctionName(subgraphNode), inputs, outputs),
+                result = new VariableDeclaration
+                {
+                    type = ShaderVariableType.None,
+                    name = string.Empty
+                }
+            });
+        }
+
+        private void CleanupNodes(ComputeShader computeShader)
+        {
+            foreach (var node in _visitedNodes)
+            {
+                if (node is ICodeGenerationNode codeGenNode)
+                {
+                    codeGenNode.Cleanup(computeShader);
+                }
             }
         }
 
@@ -142,22 +284,28 @@ namespace Misaki.TextureMaker
             return AssetDatabase.LoadAssetAtPath<ComputeShader>(hlslPath);
         }
 
-        private void DispatchShaderKernel(ComputeShader computeShader, int kernelIndex, OutputNode outputNode, IShaderLibrary library)
+        private void DispatchShader(ShaderLibrary library, ComputeShader computeShader)
         {
-            var width = outputNode.Width;
-            var height = outputNode.Height;
-
-            computeShader.SetVector("textureSize", new Vector4(width, height, 1.0f / width, 1.0f / height));
-
-            foreach (var variable in library.Variables)
+            var kernelIndex = 0;
+            foreach (var kvp in _processed)
             {
-                variable.bindingCallback?.Invoke(computeShader, kernelIndex, variable.declaration.name);
-            }
+                var width = kvp.Key.Width;
+                var height = kvp.Key.Height;
 
-            // Dispatch the compute shader
-            var threadGroupsX = (width + InstructionCompiler.threadGroupSize.x - 1) / InstructionCompiler.threadGroupSize.x;
-            var threadGroupsY = (height + InstructionCompiler.threadGroupSize.y - 1) / InstructionCompiler.threadGroupSize.y;
-            computeShader.Dispatch(kernelIndex, threadGroupsX, threadGroupsY, InstructionCompiler.threadGroupSize.z);
+                computeShader.SetVector("textureSize", new Vector4(width, height, 1.0f / width, 1.0f / height));
+
+                foreach (var variable in library.Variables)
+                {
+                    variable.bindingCallback?.Invoke(computeShader, kernelIndex, variable.declaration.name);
+                }
+
+                // Dispatch the compute shader
+                var threadGroupsX = (width + InstructionCompiler.threadGroupSize.x - 1) / InstructionCompiler.threadGroupSize.x;
+                var threadGroupsY = (height + InstructionCompiler.threadGroupSize.y - 1) / InstructionCompiler.threadGroupSize.y;
+                computeShader.Dispatch(kernelIndex, threadGroupsX, threadGroupsY, InstructionCompiler.threadGroupSize.z);
+
+                kernelIndex++;
+            }
         }
     }
 }

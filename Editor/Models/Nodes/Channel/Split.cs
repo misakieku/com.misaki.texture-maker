@@ -23,7 +23,7 @@ namespace Misaki.TextureMaker
 
         public override void GenerateCode(ICodeGenContext ctx)
         {
-            var inputVar = CodeGenUtility.GetInputVariableName<float4>(_inputPort, ctx, color => new FunctionCallExpr("float4", new() 
+            var inputVar = ctx.GetInputVariableName<float4>(_inputPort, color => new FunctionCallExpr("float4", new() 
             {
                 new ConstantExpr(color.x.ToString("F")),
                 new ConstantExpr(color.y.ToString("F")),
@@ -31,7 +31,7 @@ namespace Misaki.TextureMaker
                 new ConstantExpr(color.w.ToString("F")),
             }));
 
-            var outputVarR = CodeGenUtility.GetUniqueVariableName(_outputPortR);
+            var outputVarR = ctx.GetOutputVariableName(_outputPortR);
             ctx.AddInstruction(new Instruction
             {
                 expression = new ConstantExpr($"{inputVar}.x"),
@@ -42,7 +42,7 @@ namespace Misaki.TextureMaker
                 }
             });
 
-            var outputVarG = CodeGenUtility.GetUniqueVariableName(_outputPortG);
+            var outputVarG = ctx.GetOutputVariableName(_outputPortG);
             ctx.AddInstruction(new Instruction
             {
                 expression = new ConstantExpr($"{inputVar}.y"),
@@ -53,7 +53,7 @@ namespace Misaki.TextureMaker
                 }
             });
 
-            var outputVarB = CodeGenUtility.GetUniqueVariableName(_outputPortB);
+            var outputVarB = ctx.GetOutputVariableName(_outputPortB);
             ctx.AddInstruction(new Instruction
             {
                 expression = new ConstantExpr($"{inputVar}.z"),
@@ -64,7 +64,7 @@ namespace Misaki.TextureMaker
                 }
             });
 
-            var outputVarA = CodeGenUtility.GetUniqueVariableName(_outputPortA);
+            var outputVarA = ctx.GetOutputVariableName(_outputPortA);
             ctx.AddInstruction(new Instruction
             {
                 expression = new ConstantExpr($"{inputVar}.w"),
