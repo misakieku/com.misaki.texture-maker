@@ -26,12 +26,17 @@ namespace Misaki.TextureMaker
         SamplerState
     }
 
-    internal struct VariableDeclaration
+    internal struct VariableDeclaration : IEquatable<VariableDeclaration>
     {
         public ShaderVariableType type;
         public string name;
 
         public readonly bool IsValid => !string.IsNullOrEmpty(name);
+
+        public readonly bool Equals(VariableDeclaration other)
+        {
+            return type == other.type && name == other.name;
+        }
 
         public readonly string ToShaderCode()
         {
@@ -47,6 +52,11 @@ namespace Misaki.TextureMaker
             }
 
             return $"{hlslString} {name}";
+        }
+
+        public readonly override int GetHashCode()
+        {
+            return HashCode.Combine(type, name);
         }
     }
 

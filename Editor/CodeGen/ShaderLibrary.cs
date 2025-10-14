@@ -20,14 +20,24 @@ namespace Misaki.TextureMaker
         public IReadOnlyCollection<ShaderVariableDeclaration> Variables => _variables;
         public IReadOnlyCollection<FunctionDeclaration> Functions => _functions;
 
+        public void AddInclude(string include)
+        {
+            _includedFiles.Add(include);
+        }
+
+        public bool HasInclude(string include)
+        {
+            return _includedFiles.Contains(include);
+        }
+
         public void AddDefinition(string definition)
         {
             _definitions.Add(definition);
         }
 
-        public void AddInclude(string include)
+        public bool HasDefinition(string definition)
         {
-            _includedFiles.Add(include);
+            return _definitions.Contains(definition);
         }
 
         public string AddVariable(ShaderVariableType type, string namePrefix, Action<ComputeShader, int, string> bindingCallback)
@@ -62,7 +72,7 @@ namespace Misaki.TextureMaker
             return name;
         }
 
-        public string AddPortVariable(ShaderVariableType type, IPort port)
+        public string AddVariable(ShaderVariableType type, IPort port)
         {
             var node = port.GetNode();
 
@@ -106,9 +116,29 @@ namespace Misaki.TextureMaker
             });
         }
 
+        public bool HasVariable(ShaderVariableType type, string name)
+        {
+            return _variables.Contains(new ShaderVariableDeclaration
+            {
+                declaration = new VariableDeclaration
+                {
+                    type = type,
+                    name = name
+                }
+            });
+        }
+
         public void AddFunction(FunctionDeclaration function)
         {
             _functions.Add(function);
+        }
+
+        public bool HasFunction(string name)
+        {
+            return _functions.Contains(new FunctionDeclaration
+            {
+                name = name
+            });
         }
 
         public void Clear()

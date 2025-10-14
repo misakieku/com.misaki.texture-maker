@@ -60,7 +60,7 @@ namespace Misaki.TextureMaker
         /// <returns>A string containing the generated function name for the subgraph node.</returns>
         public static string GetSubGraphFunctionName(ISubgraphNode subgraph)
         {
-            return $"Generated_SubGraph_{subgraph.GetSubgraph().name}";
+            return $"Generated_SubGraph_{DisplayNameToCodeFriendlyName(subgraph.GetSubgraph().name)}";
         }
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace Misaki.TextureMaker
         /// <param name="displayName">The display name to convert. Can be any string; if null or empty, an empty string is returned.</param>
         /// <returns>A string representing the variable name derived from the display name, with non-word characters replaced by
         ///     underscores and leading or trailing underscores removed. Returns an empty string if the input is null or empty.</returns>
-        public static string DisplayNameToVariableName(string displayName)
+        public static string DisplayNameToCodeFriendlyName(string displayName)
         {
             if (string.IsNullOrEmpty(displayName))
             {
@@ -88,7 +88,7 @@ namespace Misaki.TextureMaker
         public static string GetUniqueVariableName(IPort port)
         {
             var node = port.GetNode();
-            return $"{node.GetType().Name}_{GetNodeID(node)}_{DisplayNameToVariableName(port.displayName)}";
+            return $"{node.GetType().Name}_{GetNodeID(node)}_{DisplayNameToCodeFriendlyName(port.displayName)}";
         }
 
         /// <summary>

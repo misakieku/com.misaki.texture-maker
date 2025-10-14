@@ -89,11 +89,12 @@ namespace Misaki.TextureMaker
             }
         }
 
-        private static void GenerateSubgraphFunction(ShaderLibrary library, ISubgraphNode subgraphNode)
+        private static void GenerateSubgraphFunction(IShaderLibrary library, ISubgraphNode subgraphNode)
         {
+            var funcName = CodeGenUtility.GetSubGraphFunctionName(subgraphNode);
             var funcDecl = new FunctionDeclaration
             {
-                name = CodeGenUtility.GetSubGraphFunctionName(subgraphNode),
+                name = funcName,
                 signature = new(),
                 returnType = ShaderVariableType.Void,
             };
@@ -101,12 +102,12 @@ namespace Misaki.TextureMaker
             var inputs = new List<string>();
             foreach (var inputPort in subgraphNode.GetInputPorts())
             {
-                var name = CodeGenUtility.DisplayNameToVariableName(inputPort.displayName);
+                var name = CodeGenUtility.DisplayNameToCodeFriendlyName(inputPort.displayName);
                 var paramType = inputPort.dataType.ToShaderVariableType();
 
                 funcDecl.signature.Add(new ParameterDeclaration
                 {
-                    name = CodeGenUtility.DisplayNameToVariableName(inputPort.displayName),
+                    name = CodeGenUtility.DisplayNameToCodeFriendlyName(inputPort.displayName),
                     type = paramType,
                     modifier = ParameterModifier.In
                 });
@@ -117,7 +118,7 @@ namespace Misaki.TextureMaker
             var outputs = new List<string>();
             foreach (var outputPort in subgraphNode.GetOutputPorts())
             {
-                var name = CodeGenUtility.DisplayNameToVariableName(outputPort.displayName);
+                var name = CodeGenUtility.DisplayNameToCodeFriendlyName(outputPort.displayName);
                 var paramType = outputPort.dataType.ToShaderVariableType();
 
                 funcDecl.signature.Add(new ParameterDeclaration
@@ -154,9 +155,20 @@ namespace Misaki.TextureMaker
             var nodes = subgraphNode.GetSubgraph().GetNodes();
             var ctx = new SubGraphCodeGenContext(inputArgsLookup, outputArgsLookup);
 
-            foreach (var codeGennode in nodes.OfType<ICodeGenerationNode>())
+            foreach (var node in nodes)
             {
-                codeGennode.GenerateCode(ctx);
+                switch (node)
+                {
+                    case ICodeGenerationNode codeGenNode:
+                        codeGenNode.GenerateCode(ctx);
+                        break;
+                    case ISubgraphNode sgNode:
+                        GenerateSubgraphFunction(library, sgNode);
+                        GenerateSubgraphCall(ctx, sgNode);
+                        break;
+                    default:
+                        break;
+                }
             }
 
             foreach (var outNode in nodes.OfType<IVariableNode>())

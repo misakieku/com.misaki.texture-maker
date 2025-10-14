@@ -14,7 +14,7 @@ namespace Misaki.TextureMaker
         public readonly static int3 threadGroupSize = new(8, 8, 1);
 
         private readonly IShaderLibrary _shaderLibrary;
-        private readonly List<ICodeGenContext> _codeGenContexts;
+        private readonly Dictionary<int, ICodeGenContext> _codeGenContexts;
 
         public InstructionCompiler(IShaderLibrary shaderLibrary)
         {
@@ -146,16 +146,6 @@ float4 textureSize; // width, height, 1/width, 1/height");
 
         public void AddContext(ICodeGenContext ctx, int kernelIndex)
         {
-            var newSize = Math.Max(_codeGenContexts.Capacity, kernelIndex + 1);
-            if (newSize > _codeGenContexts.Count)
-            {
-                _codeGenContexts.Capacity = newSize;
-                for (var i = _codeGenContexts.Count; i < newSize; i++)
-                {
-                    _codeGenContexts.Add(null);
-                }
-            }
-
             _codeGenContexts[kernelIndex] = ctx;
         }
 
@@ -247,9 +237,8 @@ float4 textureSize; // width, height, 1/width, 1/height");
             }
 
             // Main
-            for (var kernelIndex = 0; kernelIndex < _codeGenContexts.Count; kernelIndex++)
+            foreach ((var kernelIndex, var ctx) in _codeGenContexts)
             {
-                var context = _codeGenContexts[kernelIndex];
                 sb.Append(@$"
 [numthreads({threadGroupSize.x},{threadGroupSize.y},{threadGroupSize.z})]
 void {_CS_KERNEL + kernelIndex} (uint3 dispatchThreadID : SV_DispatchThreadID, uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex, uint3 groupThreadId : SV_GroupThreadID)
@@ -257,23 +246,7 @@ void {_CS_KERNEL + kernelIndex} (uint3 dispatchThreadID : SV_DispatchThreadID, u
                 GenerateBuiltInVariables(sb);
                 sb.AppendLine();
 
-//#if DISABLE_INSTR_INLINE
-//                foreach (var instr in context.InstructionSet)
-//#else
-//                foreach (var instr in InlineInstructions(context.InstructionSet))
-//#endif
-//                {
-//                    if (instr.result.IsValid)
-//                    {
-//                        sb.AppendLine(@$"{instr.result.ToShaderCode()} = {instr.expression.Emit(0)};".Indent(1));
-//                    }
-//                    else
-//                    {
-//                        sb.AppendLine(@$"{instr.expression.Emit(1)};");
-//                    }
-//                }
-                CompileInstructions(context.InstructionSet, sb);
-
+                CompileInstructions(ctx.InstructionSet, sb);
                 sb.AppendLine(@"
 }");
             }
