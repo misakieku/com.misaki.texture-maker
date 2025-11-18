@@ -41,7 +41,7 @@ namespace Misaki.TextureMaker
 
         public string GetInputVariableName<T>(IPort port, Func<T, Expression> fallback)
         {
-            if (port.direction != PortDirection.Input)
+            if (port.Direction != PortDirection.Input)
             {
                 throw new ArgumentException("Port must be an input port", nameof(port));
             }
@@ -51,7 +51,7 @@ namespace Misaki.TextureMaker
 
         public string GetInputVariableName(IPort port, ShaderVariableType variableType, Func<object, Expression> fallback)
         {
-            if (port.direction != PortDirection.Input)
+            if (port.Direction != PortDirection.Input)
             {
                 throw new ArgumentException("Port must be an input port", nameof(port));
             }
@@ -61,7 +61,7 @@ namespace Misaki.TextureMaker
 
         public string GetOutputVariableName(IPort port)
         {
-            if (port.direction != PortDirection.Output)
+            if (port.Direction != PortDirection.Output)
             {
                 throw new ArgumentException("Port must be an output port", nameof(port));
             }
@@ -109,14 +109,14 @@ namespace Misaki.TextureMaker
 
         public string GetInputVariableName<T>(IPort port, Func<T, Expression> fallback)
         {
-            if (port.direction != PortDirection.Input)
+            if (port.Direction != PortDirection.Input)
             {
                 throw new ArgumentException("Port must be an input port", nameof(port));
             }
 
-            if (port.firstConnectedPort?.GetNode() is IVariableNode variableNode)
+            if (port.FirstConnectedPort?.GetNode() is IVariableNode variableNode)
             {
-                if (_inputArgs.TryGetValue(variableNode.variable, out var connectedVariableName))
+                if (_inputArgs.TryGetValue(variableNode.Variable, out var connectedVariableName))
                 {
                     return connectedVariableName;
                 }
@@ -127,14 +127,14 @@ namespace Misaki.TextureMaker
 
         public string GetInputVariableName(IPort port, ShaderVariableType variableType, Func<object, Expression> fallback)
         {
-            if (port.direction != PortDirection.Input)
+            if (port.Direction != PortDirection.Input)
             {
                 throw new ArgumentException("Port must be an input port", nameof(port));
             }
 
-            if (port.firstConnectedPort?.GetNode() is IVariableNode variableNode)
+            if (port.FirstConnectedPort?.GetNode() is IVariableNode variableNode)
             {
-                if (_inputArgs.TryGetValue(variableNode.variable, out var connectedVariableName))
+                if (_inputArgs.TryGetValue(variableNode.Variable, out var connectedVariableName))
                 {
                     return connectedVariableName;
                 }
@@ -145,7 +145,7 @@ namespace Misaki.TextureMaker
 
         public string GetOutputVariableName(IPort port)
         {
-            if (port.direction != PortDirection.Output)
+            if (port.Direction != PortDirection.Output)
             {
                 throw new ArgumentException("Port must be an output port", nameof(port));
             }

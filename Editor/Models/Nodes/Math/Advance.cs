@@ -2,11 +2,12 @@ using System;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class Abs : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -18,11 +19,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Exp : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -34,11 +36,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Length : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -50,11 +53,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Log : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -66,6 +70,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Modulo : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -78,11 +83,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Negate : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -91,11 +97,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Normalize : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -107,12 +114,13 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Posterize : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
-            new NodePortDeclaration { displayName = "Steps", valueType = ShaderVariableType.Float },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
+            new PortDeclaration { displayName = "Steps", valueType = ShaderVariableType.Float },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -128,11 +136,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Reciprocal : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -144,11 +153,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class ReciprocalSquareRoot : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)

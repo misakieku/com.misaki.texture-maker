@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Unity.GraphToolkit.Editor;
@@ -60,7 +60,7 @@ namespace Misaki.TextureMaker
         /// <returns>A string containing the generated function name for the subgraph node.</returns>
         public static string GetSubGraphFunctionName(ISubgraphNode subgraph)
         {
-            return $"Generated_SubGraph_{DisplayNameToCodeFriendlyName(subgraph.GetSubgraph().name)}";
+            return $"Generated_SubGraph_{DisplayNameToCodeFriendlyName(subgraph.GetSubgraph().Name)}";
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace Misaki.TextureMaker
         public static string GetUniqueVariableName(IPort port)
         {
             var node = port.GetNode();
-            return $"{node.GetType().Name}_{GetNodeID(node)}_{DisplayNameToCodeFriendlyName(port.displayName)}";
+            return $"{node.GetType().Name}_{GetNodeID(node)}_{DisplayNameToCodeFriendlyName(port.DisplayName)}";
         }
 
         /// <summary>
@@ -100,7 +100,7 @@ namespace Misaki.TextureMaker
         ///     If the port is not connected or does not map directly to a variable, the fallback function is used to determine the name.</returns>
         public static string GetInputVariableName(IPort port, Func<IPort, string> fallback)
         {
-            var firstConnectedPort = port.firstConnectedPort;
+            var firstConnectedPort = port.FirstConnectedPort;
             if (firstConnectedPort == null)
             {
                 return fallback(port);

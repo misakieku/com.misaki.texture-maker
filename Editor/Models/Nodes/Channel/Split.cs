@@ -1,79 +1,48 @@
-﻿using Unity.GraphToolkit.Editor;
-using Unity.Mathematics;
+using System;
 
 namespace Misaki.TextureMaker
 {
-    internal class Split : CodeGenerationNode
+    [Serializable]
+    internal class Split : MultiDimensionNode
     {
-        private IPort _inputPort;
-        private IPort _outputPortR;
-        private IPort _outputPortG;
-        private IPort _outputPortB;
-        private IPort _outputPortA;
-
-        protected override void OnDefinePorts(IPortDefinitionContext context)
+        protected override PortDeclaration[] InputDeclarations => new PortDeclaration[]
         {
-            _inputPort = context.AddInputPort<float4>("Input").Build();
+            new PortDeclaration {displayName = "Input", valueType = ValueType, targetDimension = TargetDimension.Default},
+        };
 
-            _outputPortR = context.AddOutputPort<float>("R").Build();
-            _outputPortG = context.AddOutputPort<float>("G").Build();
-            _outputPortB = context.AddOutputPort<float>("B").Build();
-            _outputPortA = context.AddOutputPort<float>("A").Build();
-        }
+        protected override PortDeclaration[] OutputDeclarations => new PortDeclaration[]
+        {
+            new PortDeclaration {displayName = "R", valueType = ShaderVariableType.Float, targetDimension = TargetDimension.Default},
+            new PortDeclaration {displayName = "G", valueType = ShaderVariableType.Float, targetDimension = TargetDimension.Float2 | TargetDimension.Float3 | TargetDimension.Float4 },
+            new PortDeclaration {displayName = "B", valueType = ShaderVariableType.Float, targetDimension = TargetDimension.Float3 | TargetDimension.Float4},
+            new PortDeclaration {displayName = "A", valueType = ShaderVariableType.Float, targetDimension = TargetDimension.Float4},
+        };
 
         public override void GenerateCode(ICodeGenContext ctx)
         {
-            var inputVar = ctx.GetInputVariableName<float4>(_inputPort, color => new FunctionCallExpr("float4", new() 
+            var inputVar = ctx.GetInputVariableName(InputPorts[0], ValueType, data =>
             {
-                new ConstantExpr(color.x.ToString("F")),
-                new ConstantExpr(color.y.ToString("F")),
-                new ConstantExpr(color.z.ToString("F")),
-                new ConstantExpr(color.w.ToString("F")),
-            }));
-
-            var outputVarR = ctx.GetOutputVariableName(_outputPortR);
-            ctx.AddInstruction(new Instruction
-            {
-                expression = new ConstantExpr($"{inputVar}.x"),
-                result = new VariableDeclaration
-                {
-                    type = ShaderVariableType.Float,
-                    name = outputVarR
-                }
+                return CodeGenUtility.ToConstantExpr(data, ValueType);
             });
 
-            var outputVarG = ctx.GetOutputVariableName(_outputPortG);
-            ctx.AddInstruction(new Instruction
+            for (var i = 0; i < ComponentCount; i++)
             {
-                expression = new ConstantExpr($"{inputVar}.y"),
-                result = new VariableDeclaration
+                if (i >= OutputPorts.Length)
                 {
-                    type = ShaderVariableType.Float,
-                    name = outputVarG
+                    break;
                 }
-            });
 
-            var outputVarB = ctx.GetOutputVariableName(_outputPortB);
-            ctx.AddInstruction(new Instruction
-            {
-                expression = new ConstantExpr($"{inputVar}.z"),
-                result = new VariableDeclaration
+                var outputVar = ctx.GetOutputVariableName(OutputPorts[i]);
+                ctx.AddInstruction(new Instruction
                 {
-                    type = ShaderVariableType.Float,
-                    name = outputVarB
-                }
-            });
-
-            var outputVarA = ctx.GetOutputVariableName(_outputPortA);
-            ctx.AddInstruction(new Instruction
-            {
-                expression = new ConstantExpr($"{inputVar}.w"),
-                result = new VariableDeclaration
-                {
-                    type = ShaderVariableType.Float,
-                    name = outputVarA
-                }
-            });
+                    expression = new ConstantExpr($"{inputVar}[{i}]"),
+                    result = new VariableDeclaration
+                    {
+                        type = ShaderVariableType.Float,
+                        name = outputVar
+                    }
+                });
+            }
         }
     }
 }

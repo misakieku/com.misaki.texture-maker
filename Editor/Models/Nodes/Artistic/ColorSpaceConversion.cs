@@ -4,6 +4,7 @@ using Unity.Mathematics;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class ColorSpaceConversion : CodeGenerationNode
     {
         internal enum ConversionType

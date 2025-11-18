@@ -2,13 +2,14 @@ using System;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class Condition : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration {displayName = "Predicate", valueType = ShaderVariableType.Bool},
-            new NodePortDeclaration {displayName = "True", valueType = ValueType},
-            new NodePortDeclaration {displayName = "False", valueType = ValueType}
+            new PortDeclaration {displayName = "Predicate", valueType = ShaderVariableType.Bool},
+            new PortDeclaration {displayName = "True", valueType = ReturnType},
+            new PortDeclaration {displayName = "False", valueType = ReturnType}
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -22,11 +23,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class All : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -38,11 +40,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Any : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -54,11 +57,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Not : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -67,6 +71,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class And : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -75,6 +80,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Or : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -83,6 +89,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Compare : MathOperatorNode
     {
         public enum ComparisonType

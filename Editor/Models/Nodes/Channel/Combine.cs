@@ -1,8 +1,10 @@
-﻿using Unity.GraphToolkit.Editor;
+using System;
+using Unity.GraphToolkit.Editor;
 using Unity.Mathematics;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class Combine : CodeGenerationNode
     {
         private IPort _inputPortR;

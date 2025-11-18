@@ -1,6 +1,9 @@
 ﻿
+using System;
+
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal abstract class OutputNode : CodeGenerationNode
     {
         public const string WIDTH_PORT_NAME = "width";

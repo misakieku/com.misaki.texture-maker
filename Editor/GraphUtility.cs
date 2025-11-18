@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.GraphToolkit.Editor;
 
 namespace Misaki.TextureMaker
@@ -9,14 +9,14 @@ namespace Misaki.TextureMaker
         {
             T value;
 
-            var success = (port.firstConnectedPort?.GetNode()) switch
+            var success = (port.FirstConnectedPort?.GetNode()) switch
             {
                 IConstantNode constantNode => constantNode.TryGetValue(out value),
-                IVariableNode variableNode => variableNode.variable.TryGetDefaultValue(out value),
+                IVariableNode variableNode => variableNode.Variable.TryGetDefaultValue(out value),
                 _ => port.GetNode() switch
                 {
                     IConstantNode constantNode => constantNode.TryGetValue(out value),
-                    IVariableNode variableNode => variableNode.variable.TryGetDefaultValue(out value),
+                    IVariableNode variableNode => variableNode.Variable.TryGetDefaultValue(out value),
                     _ => port.TryGetValue(out value),
                 }
             };
@@ -26,7 +26,7 @@ namespace Misaki.TextureMaker
                 return value;
             }
 
-            throw new ArgumentException($"Port '{port.name}' not found or value is not of type {typeof(T).Name}.");
+            throw new ArgumentException($"Port '{port.Name}' not found or value is not of type {typeof(T).Name}.");
         }
 
         public static T GetOptionValue<T>(INodeOption option)
@@ -36,7 +36,7 @@ namespace Misaki.TextureMaker
                 return value;
             }
 
-            throw new System.ArgumentException($"Option '{option.name}' not found or value is not of type {typeof(T).Name}.");
+            throw new System.ArgumentException($"Option '{option.Name}' not found or value is not of type {typeof(T).Name}.");
         }
     }
 }

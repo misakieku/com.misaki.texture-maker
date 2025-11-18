@@ -102,12 +102,12 @@ namespace Misaki.TextureMaker
             var inputs = new List<string>();
             foreach (var inputPort in subgraphNode.GetInputPorts())
             {
-                var name = CodeGenUtility.DisplayNameToCodeFriendlyName(inputPort.displayName);
-                var paramType = inputPort.dataType.ToShaderVariableType();
+                var name = CodeGenUtility.DisplayNameToCodeFriendlyName(inputPort.DisplayName);
+                var paramType = inputPort.DataType.ToShaderVariableType();
 
                 funcDecl.signature.Add(new ParameterDeclaration
                 {
-                    name = CodeGenUtility.DisplayNameToCodeFriendlyName(inputPort.displayName),
+                    name = CodeGenUtility.DisplayNameToCodeFriendlyName(inputPort.DisplayName),
                     type = paramType,
                     modifier = ParameterModifier.In
                 });
@@ -118,8 +118,8 @@ namespace Misaki.TextureMaker
             var outputs = new List<string>();
             foreach (var outputPort in subgraphNode.GetOutputPorts())
             {
-                var name = CodeGenUtility.DisplayNameToCodeFriendlyName(outputPort.displayName);
-                var paramType = outputPort.dataType.ToShaderVariableType();
+                var name = CodeGenUtility.DisplayNameToCodeFriendlyName(outputPort.DisplayName);
+                var paramType = outputPort.DataType.ToShaderVariableType();
 
                 funcDecl.signature.Add(new ParameterDeclaration
                 {
@@ -139,7 +139,7 @@ namespace Misaki.TextureMaker
             var outputIndex = 0;
             foreach (var variable in variables)
             {
-                switch (variable.variableKind)
+                switch (variable.VariableKind)
                 {
                     case VariableKind.Input:
                         inputArgsLookup[variable] = inputs[inputIndex++];
@@ -173,15 +173,15 @@ namespace Misaki.TextureMaker
 
             foreach (var outNode in nodes.OfType<IVariableNode>())
             {
-                if (outNode.variable.variableKind == VariableKind.Output)
+                if (outNode.Variable.VariableKind == VariableKind.Output)
                 {
-                    var valueName = ctx.GetOutputVariableName(outNode.GetInputPort(0).firstConnectedPort);
+                    var valueName = ctx.GetOutputVariableName(outNode.GetInputPort(0).FirstConnectedPort);
                     ctx.AddInstruction(new Instruction
                     {
                         expression = new VariableExpr(valueName),
                         result = new VariableDeclaration
                         {
-                            name = outputArgsLookup[outNode.variable]
+                            name = outputArgsLookup[outNode.Variable]
                         }
                     });
                 }
@@ -240,9 +240,9 @@ namespace Misaki.TextureMaker
             var inputs = new List<Expression>();
             foreach (var inputPort in subgraphNode.GetInputPorts())
             {
-                var inputVar = ctx.GetInputVariableName(inputPort, inputPort.dataType.ToShaderVariableType(), data =>
+                var inputVar = ctx.GetInputVariableName(inputPort, inputPort.DataType.ToShaderVariableType(), data =>
                 {
-                    return CodeGenUtility.ToConstantExpr(data, inputPort.dataType.ToShaderVariableType());
+                    return CodeGenUtility.ToConstantExpr(data, inputPort.DataType.ToShaderVariableType());
                 });
                 inputs.Add(new VariableExpr(inputVar));
             }
@@ -253,7 +253,7 @@ namespace Misaki.TextureMaker
                 var outputVarName = ctx.GetOutputVariableName(outputPort);
                 outputs.Add(new VariableDeclaration
                 {
-                    type = outputPort.dataType.ToShaderVariableType(),
+                    type = outputPort.DataType.ToShaderVariableType(),
                     name = outputVarName
                 });
             }

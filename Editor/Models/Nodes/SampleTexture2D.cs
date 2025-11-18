@@ -1,13 +1,11 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Unity.GraphToolkit.Editor;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Windows;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class SampleTexture2D : CodeGenerationNode
     {
         private IPort _inputPort;
@@ -27,7 +25,7 @@ namespace Misaki.TextureMaker
 
         public override void Initialize(IShaderLibrary shaderLibrary)
         {
-            _textureVarName = shaderLibrary.AddVariable(ShaderVariableType.Texture2D, _inputPort.name, (shader, index, name) =>
+            _textureVarName = shaderLibrary.AddVariable(ShaderVariableType.Texture2D, _inputPort.Name, (shader, index, name) =>
             {
                 var texture = GraphUtility.GetPortValue<Texture2D>(_inputPort);
                 shader.SetTexture(index, name, texture);

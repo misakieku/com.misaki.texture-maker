@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using Unity.GraphToolkit.Editor;
 using Unity.Mathematics;
 using UnityEditor;
@@ -7,6 +8,7 @@ using UnityEngine.Experimental.Rendering;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class WriteTexture2D : OutputNode
     {
         private IPort _inputPort;
@@ -15,7 +17,7 @@ namespace Misaki.TextureMaker
         private RenderTexture _outputTexture;
         private string _textureVarName;
 
-        internal string OutputPath => GetOptionValue<string>(_outputPathOption.name);
+        internal string OutputPath => GetOptionValue<string>(_outputPathOption.Name);
 
         protected override void OnDefinePorts(IPortDefinitionContext context)
         {
@@ -86,8 +88,8 @@ namespace Misaki.TextureMaker
 
             _outputTexture.Release();
 
-            Object.DestroyImmediate(_outputTexture);
-            Object.DestroyImmediate(tex2d);
+            UnityEngine.Object.DestroyImmediate(_outputTexture);
+            UnityEngine.Object.DestroyImmediate(tex2d);
 
             _outputTexture = null;
         }

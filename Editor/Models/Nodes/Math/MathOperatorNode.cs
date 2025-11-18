@@ -1,80 +1,30 @@
-﻿using System;
-using Unity.GraphToolkit.Editor;
-using Unity.Mathematics;
+using System;
 
 namespace Misaki.TextureMaker
 {
-    internal struct NodePortDeclaration
+    [Serializable]
+    internal abstract class MathOperatorNode : MultiDimensionNode
     {
-        public string displayName;
-        public ShaderVariableType valueType;
-    }
+        protected virtual ShaderVariableType ReturnType => ValueType;
 
-    internal enum PortValueType
-    {
-        Float,
-        Float2,
-        Float3,
-        Float4
-    }
-
-    internal abstract class MathOperatorNode : CodeGenerationNode
-    {
-        protected const string VALUE_TYPE_OPTION_NAME = "Value Type";
-
-        private IPort _outputPort;
-        private IPort[] _inputPorts;
-
-        protected virtual NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "A", valueType = ValueType },
-            new NodePortDeclaration { displayName = "B", valueType = ValueType },
+            new PortDeclaration { displayName = "A", valueType = ValueType, targetDimension = TargetDimension.Default },
+            new PortDeclaration { displayName = "B", valueType = ValueType, targetDimension = TargetDimension.Default },
         };
 
-        protected virtual ShaderVariableType ReturnType => ValueType;
-        protected ShaderVariableType ValueType => ToShaderVariableType(GetOptionValue<PortValueType>(VALUE_TYPE_OPTION_NAME));
-
-        protected sealed override void OnDefinePorts(IPortDefinitionContext context)
+        protected sealed override PortDeclaration[] OutputDeclarations => new[]
         {
-            _inputPorts = new IPort[InputDeclarations.Length];
-            for (var i = 0; i < InputDeclarations.Length; i++)
-            {
-                var decl = InputDeclarations[i];
-                _inputPorts[i] = context.AddInputPort(decl.displayName).WithDataType(decl.valueType.ToType()).Build();
-            }
-
-            _outputPort = context.AddOutputPort("Result").WithDataType(ReturnType.ToType()).Build();
-        }
-
-        protected sealed override void OnDefineOptions(IOptionDefinitionContext context)
-        {
-            context.AddOption<PortValueType>(VALUE_TYPE_OPTION_NAME).WithDefaultValue(PortValueType.Float4).ShowInInspectorOnly().Build();
-            OnDefineNodeOptions(context);
-        }
-
-        protected virtual void OnDefineNodeOptions(IOptionDefinitionContext context)
-        {
-        }
-
-        private static ShaderVariableType ToShaderVariableType(PortValueType dataType)
-        {
-            return dataType switch
-            {
-                PortValueType.Float => ShaderVariableType.Float,
-                PortValueType.Float2 => ShaderVariableType.Float2,
-                PortValueType.Float3 => ShaderVariableType.Float3,
-                PortValueType.Float4 => ShaderVariableType.Float4,
-                _ => ShaderVariableType.Float4
-            };
-        }
+            new PortDeclaration { displayName = "Result", valueType = ReturnType },
+        };
 
         public sealed override void GenerateCode(ICodeGenContext ctx)
         {
-            var inputVars = new string[_inputPorts.Length];
-            for (var i = 0; i < _inputPorts.Length; i++)
+            var inputVars = new string[InputPorts.Length];
+            for (var i = 0; i < InputPorts.Length; i++)
             {
                 var sharpType = InputDeclarations[i].valueType;
-                inputVars[i] = ctx.GetInputVariableName(_inputPorts[i], sharpType, data =>
+                inputVars[i] = ctx.GetInputVariableName(InputPorts[i], sharpType, data =>
                 {
                     return CodeGenUtility.ToConstantExpr(data, InputDeclarations[i].valueType);
                 });
@@ -85,8 +35,8 @@ namespace Misaki.TextureMaker
                 expression = BuildExpression(inputVars),
                 result = new VariableDeclaration
                 {
-                    type = ReturnType,
-                    name = ctx.GetOutputVariableName(_outputPort)
+                    type = ValueType,
+                    name = ctx.GetOutputVariableName(OutputPorts[0])
                 },
             });
         }

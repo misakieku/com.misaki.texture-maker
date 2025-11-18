@@ -13,7 +13,7 @@
     "email": "misaki_39@outlook.com"
   },
   "dependencies": {
-    "com.misaki.graph-processor": "1.0.0",
-    "com.unity.graphtoolkit": "0.1.0"
-  }
+    "com.misaki.graph-processor": "1.0.0"
+  },
+  "unity": "6000.4"
 }

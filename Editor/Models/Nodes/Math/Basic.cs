@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 
 namespace Misaki.TextureMaker
 {
+    [Serializable]
     internal class Add : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -10,6 +11,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Subtract : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -18,6 +20,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Multiply : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -26,6 +29,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Divide : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -34,6 +38,7 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Power : MathOperatorNode
     {
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)
@@ -46,11 +51,12 @@ namespace Misaki.TextureMaker
         }
     }
 
+    [Serializable]
     internal class Sqrt : MathOperatorNode
     {
-        protected override NodePortDeclaration[] InputDeclarations => new[]
+        protected override PortDeclaration[] InputDeclarations => new[]
         {
-            new NodePortDeclaration { displayName = "Value", valueType = ValueType },
+            new PortDeclaration { displayName = "Value", valueType = ReturnType },
         };
 
         protected override Expression BuildExpression(ReadOnlySpan<string> inputs)

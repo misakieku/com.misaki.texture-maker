@@ -1,4 +1,5 @@
-﻿using Unity.GraphToolkit.Editor;
+﻿using System;
+using Unity.GraphToolkit.Editor;
 using UnityEngine;
 
 namespace Misaki.TextureMaker
@@ -24,6 +25,7 @@ namespace Misaki.TextureMaker
         public void Cleanup(ComputeShader shader);
     }
 
+    [Serializable]
     internal abstract class CodeGenerationNode : Node, ICodeGenerationNode
     {
         protected T GetInputPortValue<T>(string portName)

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text;
 
 namespace Misaki.TextureMaker
@@ -180,7 +179,7 @@ namespace Misaki.TextureMaker
         {
             var l = left.Inline(table);
             var r = right.Inline(table);
-            // We don't inline expresion if both sides are constants, because that would require evaluating the expression here, which dxc can handle better.
+            // We don't inline expresion if both sides are constants, because that would require evaluating the expression here, which dxc can handle it better.
             return new BinaryExpr(l, op, r);
         }
     }
